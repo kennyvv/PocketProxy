@@ -1,0 +1,388 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<protocol>
+  <type name="varint" stream="VarInt" class="int" />
+  <type name="ushort" stream="UShort" class="ushort" />
+  <type name="byte" stream="UInt8" class="byte" />
+  <type name="position" stream="position" class="Vector3" />
+  <type name="boolean" stream="boolean" class="bool" />
+  <type name="UUID" stream="UUID" class="string"/>
+
+  <pdu id="0x00" serverbound="true" state="handshake" name="Handshake">
+    <field name="ProtocolVersion" type="varint" />
+    <field name="ServerAddress" type="string" />
+    <field name="ServerPort" type="ushort" />
+    <field name="NextState" type="PacketState" />
+  </pdu>
+
+  <pdu id="0x04" serverbound="true" state="play" name="Client Settings">
+    <field name="Locale" type="string" />
+    <field name="ViewDistance" type="byte" />
+    <field name="ChatMode" type="varint" />
+    <field name="ChatColors" type="boolean" />
+    <field name="DisplayedSkinParts" type="byte" />
+    <field name="MainHand" type="varint" />
+  </pdu>
+
+  <pdu id="0x00" serverbound="true" state="status" name="Request">
+  </pdu>
+
+  <pdu id="0x01" serverbound="true" state="status" name="Ping">
+    <field name="Payload" type="long" />
+  </pdu>
+
+  <pdu id="0x02" serverbound="true" state="play" name="ChatMessage">
+    <field name="ChatMessage" type="string" />
+  </pdu>
+
+  <pdu id="0x00" serverbound="true" state="login" name="LoginStart">
+    <field name="Name" type="string" />
+  </pdu>
+
+  <pdu id="0x0D" serverbound="true" state="play" name="Player position and look">
+    <field name="X" type="double" />
+    <field name="Y" type="double" />
+    <field name="Z" type="double" />
+    <field name="Yaw" type="float" />
+    <field name="Pitch" type="float" />
+    <field name="Onground" type="boolean" />
+  </pdu>
+
+  <pdu id="0x1E" name="Change Gamestate">
+    <field name="Reason" type="byte" />
+    <field name="Value" type="float"/>
+  </pdu>
+  
+  <pdu id="0x0C" serverbound="true" state="play" name="Player position">
+    <field name="X" type="double" />
+    <field name="Y" type="double" />
+    <field name="Z" type="double" />
+    <field name="Onground" type="boolean" />
+  </pdu>
+
+  <pdu id="0x0E" serverbound="true" state="play" name="Player look">
+    <field name="Yaw" type="float" />
+    <field name="Pitch" type="float" />
+    <field name="Onground" type="boolean" />
+  </pdu>
+
+  <pdu id="0x00" name="Response">
+    <field name="Status" type="StatusResponse" />
+  </pdu>
+
+  <pdu id="0x02" name="Login Success">
+    <field name="UUID" type="string" />
+    <field name="Username" type="string" />
+  </pdu>
+
+  <pdu id="0x03" name="Set Compression">
+    <field name="Threshold" type="varint" />
+  </pdu>
+
+  <pdu id="0x20" name="Chunk Data">
+    <field name="ChunkX" type="int" />
+    <field name="ChunkZ" type="int" />
+    <field name="GroundUpContinuous" type="boolean" />
+    <field name="PrimaryBitmask" type="varint" />
+    <field name="SizeOfData" type="varint" />
+    <field name="Data" type="byte[]" />
+    <field name="Biome" type="byte[]" />
+  </pdu>
+
+  <pdu id="0x43" name="Spawn Position">
+    <field name="Location" type="position" />
+  </pdu>
+
+  <pdu id="0x2E" name="Player position and look">
+    <field name="X" type="double" />
+    <field name="Y" type="double" />
+    <field name="Z" type="double" />
+    <field name="Yaw" type="float" />
+    <field name="Pitch" type="float" />
+    <field name="Flags" type="byte" />
+    <field name="TeleportID" type="varint" />
+  </pdu>
+
+  <pdu id="0x23" name="Join Game">
+    <field name="EntityId" type="int" />
+    <field name="Gamemode" type="byte" />
+    <field name="Dimension" type="int" />
+    <field name="Difficulty" type="byte" />
+    <field name="MaxPlayers" type="byte" />
+    <field name="LevelType" type="string" />
+    <field name="ReducedDebugInfo" type="boolean" />
+  </pdu>
+
+  <pdu id="0x2B" name="Player Abilities">
+    <field name="Flags" type="byte" />
+    <field name="FlyingSpeed" type="float" />
+    <field name="FieldOfViewModifier" type="float" />
+  </pdu>
+
+  <pdu id="0x1F" name="Keep Alive">
+    <field name="KeepAliveID" type="varint" />
+  </pdu>
+
+  <pdu id="0x0B" name="Keep Alive" serverbound="true" state="play">
+    <field name="KeepAliveID" type="varint" />
+  </pdu>
+
+  <pdu id="0x1D" name="Unload Chunk">
+    <field name="ChunkX" type="int" />
+    <field name="ChunkZ" type="int" />
+  </pdu>
+
+  <pdu id="0x0F" name="ChatMessage">
+    <field name="ChatMessage" type="string" />
+    <field name="Position" type="byte" />
+  </pdu>
+
+  <pdu id="0x01" name="Pong">
+    <field name="Payload" type="long" />
+  </pdu>
+
+  <pdu id="0x2D" name="Add Player List Item" writeonly="true">
+    <field name="Action" type="varint" value="0"/>
+    <field name="NumberOfPlayers" type="varint"/>
+    <field name="UUID" type="UUID" />
+    <field name="Name" type="string" />
+    <field name="NumberOfProperties" type="varint" value="0" />
+    <field name="Gamemode" type="varint"/>
+    <field name="Ping" type="varint"/>
+    <field name="HasDisplayName" type="boolean" value="false"/>
+  </pdu>
+
+  <pdu id="0x2D" name="Update Display Name" writeonly="true">
+    <field name="Action" type="varint" value="3"/>
+    <field name="NumberOfPlayers" type="varint"/>
+    <field name="UUID" type="UUID" />
+    <field name="HasDisplayName" type="boolean" value="true"/>
+    <field name="DisplayName" type="string"/>
+  </pdu>
+
+  <pdu id="0x2D" name="Add Player List Item With Skin" writeonly="true">
+    <field name="Action" type="varint" value="0"/>
+    <field name="NumberOfPlayers" type="varint"/>
+    <field name="UUID" type="UUID" />
+    <field name="Name" type="string" />
+    <field name="NumberOfProperties" type="varint" value="1" />
+    <field name="PropertieName" type="string" value='"textures"'/>
+    <field name="PropertieValue" type="string"/>
+    <field name="PropertieSigned" type="boolean" value="false"/>
+    <field name="Gamemode" type="varint"/>
+    <field name="Ping" type="varint"/>
+    <field name="HasDisplayName" type="boolean" value="false"/>
+  </pdu>
+
+  <pdu id="0x1C" name="PlayerBlockPlacement" serverbound="true" state="play">
+    <field name="Location" type="long" />
+    <field name="Face" type="varint"/>
+    <field name="Hand" type="varint" />
+    <field name="CursorPositionX" type="byte"/>
+    <field name="CursorPositionY" type="byte"/>
+    <field name="CursorPositionZ" type="byte"/>
+  </pdu>
+  
+  <pdu id="0x13" name="PlayerDigging" serverbound="true" state="play">
+    <field name="Status" type="byte" />
+    <field name="Location" type="long" />
+    <field name="Face" type="byte" />
+  </pdu>
+    
+  <pdu id="0x2D" name="Update Player Latency" writeonly="true">
+    <field name="Action" type="varint" value="2"/>
+    <field name="NumberOfPlayers" type="varint"/>
+    <field name="UUID" type="UUID" />
+    <field name="Ping" type="varint"/>
+  </pdu>
+
+  <pdu id="0x2D" name="Remove Player List Item" writeonly="true">
+    <field name="Action" type="varint" value="4"/>
+    <field name="NumberOfPlayers" type="varint"/>
+    <field name="UUID" type="UUID" />
+  </pdu>
+  
+  <pdu id="0x2D" name="UpdateGamemode" writeonly="true">
+    <field name="Action" type="varint" value="1"/>
+    <field name="NumberOfPlayers" type="varint"/>
+    <field name="UUID" type="UUID" />
+    <field name="Gamemode" type="varint"/>
+  </pdu>
+
+  <pdu id="0x3D" name="Set Experience">
+    <field name="ExperienceBar" type="float"/>
+    <field name="Level" type="varint"/>
+    <field name="TotalExperience" type="varint"/>
+  </pdu>
+
+  <pdu id="0x05" name="Spawn Player" writeonly="true">
+    <field name="EntityId" type="varint"/>
+    <field name="PlayerUUID" type="UUID"/>
+    <field name="X" type="double"/>
+    <field name="Y" type="double"/>
+    <field name="Z" type="double"/>
+    <field name="Yaw" type="byte"/>
+    <field name="Pitch" type="byte"/>
+    <field name="metadata" type="byte" value="0xff" />
+  </pdu>
+
+  <pdu id="0x01" name="Encryption Request" writeonly="true">
+    <field name="ServerID" type="string"/>
+    <field name="PublicKeyLength" type="varint"/>
+    <field name="PublicKey" type="byte[]"/>
+    <field name="VerifyTokenLength" type="varint"/>
+    <field name="VerifyToken" type="byte[]"/>
+  </pdu>
+
+  <pdu id="0x0B" name="BlockChange">
+    <field name="Location" type="position"/>
+    <field name="BlockId" type="varint"/>
+  </pdu>
+
+  <pdu id="0x46" name="UpdateSign">
+    <field name="Location" type="position"/>
+    <field name="Line1" type="string"/>
+    <field name="Line2" type="string"/>
+    <field name="Line3" type="string"/>
+    <field name="Line4" type="string"/>
+  </pdu>
+
+  <pdu id="0x4A" name="Entity Teleport" writeonly="true">
+    <field name="EntityId" type="varint"/>
+    <field name="X" type="double"/>
+    <field name="Y" type="double"/>
+    <field name="Z" type="double"/>
+    <field name="Yaw" type="byte"/>
+    <field name="Pitch" type="byte"/>
+    <field name="OnGround" type="boolean"/>
+  </pdu>
+  
+  <pdu id="0x34" name="EntityHeadLook" writeonly="true">
+    <field name="EntityId" type="varint"/>
+    <field name="Yaw" type="byte"/>
+  </pdu>
+  
+  <pdu id="0x27" name="Entity Look" writeonly="true">
+    <field name="EntityId" type="varint"/>
+    <field name="Yaw" type="byte"/>
+    <field name="Pitch" type="byte"/>
+    <field name="OnGround" type="boolean"/>
+  </pdu>
+
+  <pdu id="0x26" name="EntityLookAndRelativeMove" writeonly="true">
+    <field name="EntityId" type="varint"/>
+    <field name="X" type="byte"/>
+    <field name="Y" type="byte"/>
+    <field name="Z" type="byte"/>
+    <field name="Yaw" type="byte"/>
+    <field name="Pitch" type="byte"/>
+    <field name="OnGround" type="boolean"/>
+  </pdu>
+
+  <pdu id="0x30" name="DestroyEntities" writeonly="true">
+    <field name="Count" type="varint" value="1"/>
+    <field name="EntityId" type="varint"/>
+  </pdu>
+
+  <pdu id="0x1A" name="Disconnect" writeonly="true">
+    <field name="Reason" type="string"/>
+  </pdu>
+
+  <pdu id="0x0D" name="ServerDifficulty" writeonly="true">
+    <field name="Difficulty" type="byte"/>
+  </pdu>
+
+  <pdu id="0x3E" name="UpdateHealth" writeonly="true">
+    <field name="Health" type="float"/>
+    <field name="Food" type="varint"/>
+    <field name="FoodSaturation" type="float"/>
+  </pdu>
+  
+  <pdu id="0x49" name="Collect Item" writeonly="true">
+    <field name="CollectedEntityId" type="varint"/>
+    <field name="CollectorEntityId" type="varint"/>
+  </pdu>
+
+  <pdu id="0x44" name="Time Update" writeonly="true">
+    <field name="WorldAge" type="long"/>
+    <field name="TimeOfDay" type="long"/>
+  </pdu>
+
+  <pdu id="0x03" name="Spawn Mob" writeonly="true">
+    <field name="EntityId" type="varint"/>
+    <field name="EntityUUID" type="UUID"/>
+    <field name="Type" type="byte"/>
+    <field name="X" type="double"/>
+    <field name="Y" type="double"/>
+    <field name="Z" type="double"/>
+    <field name="Yaw" type="byte"/>
+    <field name="Pitch" type="byte"/>
+    <field name="HeadPitch" type="byte"/>
+    <field name="VelocityX" type="short"/>
+    <field name="VelocityY" type="short"/>
+    <field name="VelocityZ" type="short"/>
+    <field name="metadata" type="byte" value="0xff" />
+  </pdu>
+
+  <pdu id="0x13" name="Open Window" writeonly="true">
+    <field name="WindowId" type="byte"/>
+    <field name="Type" type="string"/>
+    <field name="Title" type="string"/>
+    <field name="Slots" type="byte"/>
+  </pdu>
+
+  <pdu id="0x0A" name="Block Action" writeonly="true">
+    <field name="Location" type="position"/>
+    <field name="Byte1" type="byte"/>
+    <field name="Byte2" type="byte"/>
+    <field name="BlockType" type="varint"/>
+  </pdu>
+
+  <pdu id="0x03" name="ClientStatus" serverbound="true" state="play">
+    <field name="ActionId" type="varint"/>
+  </pdu>
+
+  <pdu id="0x06" name="Animation">
+    <field name="TargetEntity" type="varint"/>
+    <field name="AnimationId" type="byte"/>
+  </pdu>
+
+  <pdu id="0x1A" serverbound="true" state="play" name="Animation">
+    <field name="Hand" type="varint"/>
+  </pdu>
+  
+  <pdu id="0x14" serverbound="true" state="play" name="Entity Action">
+    <field name="EntityId" type="varint"/>
+    <field name="ActionId" type="varint"/>
+  </pdu>
+
+  <pdu id="0x17" serverbound="true" state="play" name="Held Item Change">
+    <field name="Slot" type="short"/> 
+  </pdu>
+
+  <pdu id="0x08" serverbound="true" state="play" name="Close Window">
+    <field name="WindowId" type="byte"/>
+  </pdu>
+
+  <pdu id="0x12" name="Close Window">
+    <field name="WindowId" type="byte"/>
+  </pdu>
+
+  <pdu id="0x3B" name="Entity Velocity">
+    <field name="EntityId" type="varint"/>
+    <field name="VelocityX" type="short"/>
+    <field name="VelocityY" type="short"/>
+    <field name="VelocityZ" type="short"/>
+  </pdu>
+
+  <pdu id="0x11" name="Confirm Transaction">
+    <field name="WindowId" type="byte"/>
+    <field name="ActionNumber" type="short"/>
+    <field name="Accepted" type="boolean"/>
+  </pdu>
+
+  <pdu id="0x48" name="Player List Header Footer">
+    <field name="Header" type="string"/>
+    <field name="Footer" type="string"/>
+  </pdu>
+</protocol>
