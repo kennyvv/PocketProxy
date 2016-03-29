@@ -1,4 +1,4 @@
-﻿namespace Mcpc.Lib
+﻿namespace PocketProxy.PC
 {
     public static class Info
     {
