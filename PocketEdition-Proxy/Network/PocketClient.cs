@@ -5,7 +5,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using fNbt;
 using log4net;
 using PocketProxy.PC.Net.Clientbound;
 using PocketProxy.PC.Net.Serverbound;
@@ -150,14 +149,6 @@ namespace PocketProxy.Network
                 }
             }
 
-            //Send Current Inventory Slot
-           // if (tick%20 == 0)
-           // {
-           //     SendHandItem();
-           // }
-
-            // if (!Monitor.TryEnter(_unloadObject)) return;
-
             //Below we unload the chunks we don't need on the client anymore
             if (DateTime.UtcNow.Subtract(_lastUnload).TotalSeconds > 10)
             {
@@ -299,7 +290,6 @@ namespace PocketProxy.Network
         {
             try
             {
-               // Log.Info("Sending packet: 0x" + packet.PacketId.ToString("X2"));
                 var packetData = packet.GetData();
 
                 using (var stream = new MinecraftStream(Client.GetStream()))
@@ -713,7 +703,7 @@ namespace PocketProxy.Network
 
             QueuePacket(new Response
             {
-                Status = new StatusResponse(PocketProxy.ProtocolName, Info.ProtocolVersion, online, max, new ChatObject(motd))
+                Status = new StatusResponse(PocketProxy.ProtocolName, ProtocolInfo.ProtocolVersion, online, max, new ChatObject(motd))
             });
         }
 
@@ -735,7 +725,6 @@ namespace PocketProxy.Network
 
             var chunkInfo = PcChunkColumn.GetPcChunkColumn(chunk);
             var chunkData = chunkInfo.GetChunkData(true);
-            //var chunkData = ChunkConverter.GetChunkColumnData(chunk);
 
             QueuePacket(new ChunkData()
             {

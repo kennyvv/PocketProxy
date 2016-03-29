@@ -86,7 +86,7 @@ namespace PocketProxy
                 max = serverInfo.MaxPlayers;
                 status = "Online";
             }
-            Console.Title = string.Format("PocketProxy (#{0}) | Connections: {1} | Target: {4} |  Players: {2}/{3}", Info.ProtocolVersion, Clients.Count, online, max, status);
+            Console.Title = string.Format("PocketProxy (#{0}) | Connections: {1} | Target: {4} |  Players: {2}/{3}", ProtocolInfo.ProtocolVersion, Clients.Count, online, max, status);
         }
 
         public void Start()

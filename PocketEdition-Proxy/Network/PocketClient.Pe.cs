@@ -800,7 +800,6 @@ namespace PocketProxy.Network
                 return;
             }
 
-            //TODO: Make sure this new solution works
             if (package.windowId == 0x00) //Inventory
             {
                 for (int index = 0; index < package.slotData.Count; index++)
@@ -825,37 +824,6 @@ namespace PocketProxy.Network
                         SendHandItem();
                     }
                 }
-
-                /*for (int index = 0; index < package.slotData.Count && index < 9; index++)
-                {
-                    var i = package.slotData[index];
-                    if (i.Id == 0 || i.Id == -1 || i.Count <= 0) continue;
-
-                    QueuePacket(new SetSlot
-                    {
-                        Slot = i,
-                        SlotId = (short)(36 + index)
-                    });
-                    InventoryManager.SetSlot((short)(36 + index), i, false);
-
-                    if (index == InventoryManager.SelectedSlot)
-                    {
-                        SendHandItem();
-                    }
-                }
-
-                for (int index = 0; index < package.slotData.Count && index < 26; index++)
-                {
-                    var i = package.slotData[9 + index];
-                    if (i.Id == 0 || i.Id == -1 || i.Count <= 0) continue;
-
-                    QueuePacket(new SetSlot
-                    {
-                        Slot = i,
-                        SlotId = (short)(9 + index)
-                    });
-                    InventoryManager.SetSlot((short)(9 + index), i, false);
-                }*/
             }
         }
 
@@ -904,8 +872,6 @@ namespace PocketProxy.Network
             else if (type == MessageType.Popup)
             {
                 position = 2;
-                //Show a "title""
-                //return;
             }
 
             foreach (
@@ -939,7 +905,6 @@ namespace PocketProxy.Network
         private void PocketEditionClientOnOnStartGame(GameMode gamemode, Vector3 spawnPoint, long entityId)
         {
             CurrentPosition = new PlayerLocation(spawnPoint);
-            //_canFly = true;
             _canFly = (gamemode == GameMode.Creative);
             _flying = (gamemode == GameMode.Creative);
             _invulnerable = (gamemode == GameMode.Creative);

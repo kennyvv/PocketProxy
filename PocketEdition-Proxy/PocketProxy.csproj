@@ -89,10 +89,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="PC\ProtocolInfo.cs" />
     <Compile Include="Network\MiNETClient.cs" />
     <Compile Include="Network\PocketClient.Pe.cs" />
     <Compile Include="Network\PocketClient.cs" />
-    <Compile Include="PC\Info.cs" />
     <Compile Include="PC\Net\Clientbound\EntityEquipment.cs" />
     <Compile Include="PC\Net\Clientbound\EntityMetadata.cs" />
     <Compile Include="PC\Net\Clientbound\Explosion.cs" />

@@ -14,7 +14,6 @@ using MiNET.Items;
 using MiNET.Net;
 using MiNET.Utils;
 using MiNET.Worlds;
-using PocketProxy.Utils;
 
 namespace PocketProxy.Network
 {
@@ -187,8 +186,6 @@ namespace PocketProxy.Network
 
                 if (message == null) return;
 
-                TraceReceive(message);
-
                 switch (msgIdType)
                 {
                     case DefaultMessageIdTypes.ID_UNCONNECTED_PONG:
@@ -280,12 +277,12 @@ namespace PocketProxy.Network
 
         private void HandleAck(byte[] receiveBytes, IPEndPoint senderEndpoint)
         {
-         //   Log.Warn("!! ACK");
+			
         }
 
         private void HandleNak(byte[] receiveBytes, IPEndPoint senderEndpoint)
         {
-         //   Log.Warn("!! NAK");
+			
         }
 
         private void HandleSplitMessage(PlayerNetworkSession playerSession, ConnectedPackage package,
@@ -794,8 +791,6 @@ namespace PocketProxy.Network
                     }
 
                     defStream.ReadInt32(); //Extra Size
-
-                    //List<NbtCompound> nbtCompounds = new List<NbtCompound>();
                     
                     while (memStream.Position < memStream.Length)
                     {
@@ -846,8 +841,6 @@ namespace PocketProxy.Network
                     }
                 }
             }
-
-            //TODO: Read block entity data
 
             OnChunkData?.Invoke(chunk);
         }
@@ -961,8 +954,6 @@ namespace PocketProxy.Network
         {
             if (message == null) return;
 
-            TraceSend(message);
-
             foreach (var datagram in Datagram.CreateDatagrams(message, mtuSize, Session))
             {
                 SendDatagram(datagram);
@@ -1002,32 +993,6 @@ namespace PocketProxy.Network
             }
         }
 
-        private void TraceReceive(Package message)
-        {
-//#if RELEASE
-            return;
-//#endif
-            if (message is McpeMoveEntity
-                || message is McpeMovePlayer
-                || message is McpeSetEntityMotion
-                || message is McpeBatch
-                || message is McpeFullChunkData
-                || message is ConnectedPing)
-                return;
-
-            var stringWriter = new StringWriter();
-            ObjectDumper.Write(message, 1, stringWriter);
-
-            Log.DebugFormat("> Receive: {0}: {1} (0x{0:x2})", message.Id, message.GetType().Name);
-            // Log.DebugFormat("> Receive: {0} (0x{0:x2}) {1}:\n{2} ", message.Id, message.GetType().Name, stringWriter.ToString());
-        }
-
-        private void TraceSend(Package message)
-        {
-            return;
-            Log.DebugFormat("<    Send: {0}: {1} (0x{0:x2})", message.Id, message.GetType().Name);
-        }
-
         private void SendConnectedPong(long sendpingtime)
         {
             SendPackage(new ConnectedPong
@@ -1047,8 +1012,6 @@ namespace PocketProxy.Network
 
             byte[] data = packet.Encode();
 
-            TraceSend(packet);
-
             // 1087 1447
             byte[] data2 = new byte[_mtuSize - data.Length];
             Buffer.BlockCopy(data, 0, data2, 0, data.Length);
@@ -1067,8 +1030,6 @@ namespace PocketProxy.Network
             };
 
             var data = packet.Encode();
-
-            TraceSend(packet);
 
             SendData(data);
         }
