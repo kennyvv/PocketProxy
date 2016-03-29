@@ -119,12 +119,11 @@
     <Compile Include="PC\Objects\StatusResponsePlayers.cs" />
     <Compile Include="PC\Objects\StatusResponseVersion.cs" />
     <Compile Include="PC\Utils\BlockStorage.cs" />
-    <Compile Include="PC\Utils\ByteHelper.cs" />
+    <Compile Include="Utils\ByteHelper.cs" />
     <Compile Include="PC\Utils\Chunk.cs" />
     <Compile Include="PC\Utils\FlexibleStorage.cs" />
     <Compile Include="PC\Utils\MapIcon.cs" />
     <Compile Include="PC\Utils\MinecraftStream.cs" />
-    <Compile Include="PC\Utils\Objects.cs" />
     <Compile Include="PC\Utils\PacketState.cs" />
     <Compile Include="PC\Utils\PCChunkColumn.cs" />
     <Compile Include="PE\Extensions.cs" />
@@ -139,13 +138,11 @@
     <Compile Include="PocketProxy.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Utils\ChunkConverter.cs" />
     <Compile Include="Utils\EmptyItem.cs" />
     <Compile Include="Utils\EntityIdTranslator.cs" />
     <Compile Include="Utils\Extensions.cs" />
     <Compile Include="Utils\IniFile.cs" />
     <Compile Include="Utils\InventoryManager.cs" />
-    <Compile Include="Utils\MetadataConverter.cs" />
     <Compile Include="Utils\ObjectDumper.cs" />
     <Compile Include="Utils\PcSkin.cs" />
     <Compile Include="Utils\SpawnedEntity.cs" />

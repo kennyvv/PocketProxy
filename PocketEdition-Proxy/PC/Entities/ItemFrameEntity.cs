@@ -1,6 +1,6 @@
 ﻿using MiNET.Entities;
 
-namespace Mcpc.Lib.Entities
+namespace PocketProxy.PC.Entities
 {
     public class ItemFrameEntity : Entity
     {

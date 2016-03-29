@@ -1,4 +1,4 @@
-﻿namespace PocketProxy.PC.Utils
+﻿namespace PocketProxy.Utils
 {
     public static class ByteHelper
     {
