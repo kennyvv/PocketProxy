@@ -10,7 +10,6 @@ using MiNET.Worlds;
 using Newtonsoft.Json;
 using PocketProxy.PC.Objects;
 using PocketProxy.PC.Utils;
-using PocketProxy.PE.Utils;
 using PocketProxy.Utils;
 using Explosion = PocketProxy.PC.Net.Clientbound.Explosion;
 

@@ -19,7 +19,7 @@ using Newtonsoft.Json;
 using PocketProxy.PC.Net;
 using PocketProxy.PC.Objects;
 using PocketProxy.PC.Utils;
-using PocketProxy.PE.Query;
+using PocketProxy.PE;
 using PocketProxy.Utils;
 using Animation = PocketProxy.PC.Net.Serverbound.Animation;
 using CloseWindow = PocketProxy.PC.Net.Serverbound.CloseWindow;

@@ -1,6 +1,6 @@
 ﻿using MiNET.Items;
 using PocketProxy.PC.Utils;
-using PocketProxy.PE.Utils;
+using PocketProxy.Utils;
 
 namespace PocketProxy.PC.Net.Clientbound
 {

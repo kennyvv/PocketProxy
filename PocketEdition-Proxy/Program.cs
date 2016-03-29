@@ -3,7 +3,6 @@ using System.IO;
 using System.Net;
 using log4net;
 using log4net.Config;
-using PocketProxy.PE.Utils;
 using PocketProxy.Utils;
 
 namespace PocketProxy

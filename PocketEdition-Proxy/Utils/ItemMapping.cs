@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace PocketProxy.PE.Utils
+namespace PocketProxy.Utils
 {
     public class ItemMapping
     {

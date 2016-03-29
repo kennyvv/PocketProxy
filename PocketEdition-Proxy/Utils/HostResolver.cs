@@ -1,6 +1,6 @@
 ﻿using System.Net;
 
-namespace PocketProxy.PE.Utils
+namespace PocketProxy.Utils
 {
     public static class HostResolver
     {

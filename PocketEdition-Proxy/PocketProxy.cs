@@ -5,7 +5,7 @@ using System.Net.Sockets;
 using System.Threading;
 using Mcpc.Lib;
 using PocketProxy.Network;
-using PocketProxy.PE.Query;
+using PocketProxy.PE;
 using PocketProxy.Utils;
 using Timer = System.Timers.Timer;
 

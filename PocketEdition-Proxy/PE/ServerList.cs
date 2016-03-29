@@ -5,7 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-namespace PocketProxy.PE.Query
+namespace PocketProxy.PE
 {
     public static class ServerList
     {

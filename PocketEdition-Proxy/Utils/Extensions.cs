@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -74,5 +73,12 @@ namespace PocketProxy.Utils
         {
             return listToClone.Select(item => (T)item.Clone()).ToList();
         }
-    }
+
+		public static long NextLong(this Random random)
+		{
+			byte[] longBytes = new byte[8];
+			random.NextBytes(longBytes);
+			return BitConverter.ToInt64(longBytes, 0);
+		}
+	}
 }
