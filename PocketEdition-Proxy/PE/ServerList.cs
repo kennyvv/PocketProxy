@@ -21,20 +21,21 @@ namespace PocketProxy.PE
         /// <returns></returns>
         public static ServerInfo QueryServer(IPEndPoint serverEndPoint)
         {
+            IPEndPoint recpoint = new IPEndPoint(IPAddress.Any, 0);
+            UdpClient client = new UdpClient
+            {
+                Client =
+                {
+                    ReceiveTimeout = 1000
+                }
+            };
+
             try
             {
                 int maxPlayers = 0;
                 int onlinePlayers = 0;
                 string motd = "";
 
-                IPEndPoint recpoint = new IPEndPoint(IPAddress.Any, new Random().Next(65535));
-                UdpClient client = new UdpClient
-                {
-                    Client =
-                    {
-                        ReceiveTimeout = 1000
-                    }
-                };
                 client.Connect(serverEndPoint);
 
                 using (var ms = new MemoryStream())
@@ -74,6 +75,7 @@ namespace PocketProxy.PE
             }
             catch
             {
+                client?.Close();
                 return null;
             }
         }

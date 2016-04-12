@@ -13,7 +13,7 @@ namespace PocketProxy
 {
     public class PocketProxy
     {
-        public const string ProtocolName = "PC 1.9.1-Pre3 | PE 0.14";
+        public const string ProtocolName = "PC 1.9.2 | PE 0.14";
 
         private IPEndPoint ServerEndPoint { get; }
         private string IpAddress { get; }

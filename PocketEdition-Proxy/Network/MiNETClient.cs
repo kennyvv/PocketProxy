@@ -5,6 +5,8 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using fNbt;
 using log4net;
@@ -1072,19 +1074,29 @@ namespace PocketProxy.Network
             Skin skin = new Skin
             {
                 Slim = false,
-                SkinType = "Standard_Custom",
-                Texture = Skin.GetTextureFromFile("skin.png")
+                Texture = Encoding.Default.GetBytes(new string('Z', 8192)),
+                SkinType = "Standard_Custom"
             };
+
+            if (File.Exists("skin.png"))
+            {
+                skin.Texture = File.ReadAllBytes("skin.png");
+            }
 
             var packet = new McpeLogin
             {
                 username = username,
-                protocol = 45,
-                protocol2 = 45,
+                protocol = 46,
+                protocol2 = 46,
                 clientId = ClientId,
                 clientUuid = new UUID(Guid.NewGuid().ToByteArray()),
                 serverAddress = _serverEndpoint.Address + ":" + _serverEndpoint.Port,
-                clientSecret = "iwmvi45hm85oncyo58",
+                // clientSecret = "iwmvi45hm85oncyo58",
+                clientSecret =
+                    Encoding.ASCII.GetString(
+                        MD5.Create()
+                            .ComputeHash(
+                                Encoding.UTF8.GetBytes("" + ClientId + _serverEndpoint.Address + _serverEndpoint.Port))),
                 skin = skin
             };
 
