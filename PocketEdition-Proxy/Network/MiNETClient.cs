@@ -29,7 +29,8 @@ namespace PocketProxy.Network
         private IPEndPoint _clientEndpoint;
         private IPEndPoint _serverEndpoint;
         private short _mtuSize = 1400;
-        private int ClientId { get; }
+		
+		private int ClientId { get; }
 
         private PlayerNetworkSession Session { get; set; }
 		 
@@ -75,7 +76,8 @@ namespace PocketProxy.Network
                 _clientEndpoint = (IPEndPoint) UdpClient.Client.LocalEndPoint;
 
                 SendOpenConnectionRequest1();
-                Log.InfoFormat("{0} connected to {1}", _clientEndpoint.ToString(), _serverEndpoint.ToString());
+				Task.Run(ProcessQueue);
+				Log.InfoFormat("{0} connected to {1}", _clientEndpoint.ToString(), _serverEndpoint.ToString());
 
                 return true;
             }
@@ -200,7 +202,7 @@ namespace PocketProxy.Network
 							Log.Warn($"MOTD {incoming.serverName}");
 							//if (!HaveServer)
 							//{
-								_serverEndpoint = senderEndpoint;
+								//_serverEndpoint = senderEndpoint;
 								//HaveServer = true;
 								SendOpenConnectionRequest1();
 							//}
@@ -509,7 +511,7 @@ namespace PocketProxy.Network
 
         private void HandlePackage(Package message)
         {
-            Console.WriteLine("Packet: " + message);
+           // Console.WriteLine("Packet: " + message);
 
 			if (typeof(McpeWrapper) == message.GetType())
 			{
@@ -893,18 +895,20 @@ namespace PocketProxy.Network
 
 		private void OnWrapper(McpeWrapper message)
 		{
+
 			// Get bytes
 			byte[] payload = message.payload;
-			//if (playerSession.CryptoContext != null && Config.GetProperty("UseEncryption", true))
-			//{
-			//	payload = CryptoUtils.Decrypt(payload, playerSession.CryptoContext);
-			//}
+			if (Session.CryptoContext != null && Session.CryptoContext.UseEncryption)
+			{
+				payload = CryptoUtils.Decrypt(payload, Session.CryptoContext);
+			}
 
 			//if (Log.IsDebugEnabled)
 			//	Log.Debug($"0x{payload[0]:x2}\n{Package.HexDump(payload)}");
 
 			Package newMessage = PackageFactory.CreatePackage(payload[0], payload, "mcpe") ?? new UnknownPackage(payload[0], payload);
-			HandlePackage(newMessage);
+
+			Task.Run(() => { HandlePackage(newMessage); });
 		}
 
 		private void OnRemovePlayer(McpeRemoveEntity message)
@@ -1332,10 +1336,11 @@ namespace PocketProxy.Network
             SendPackage(packet);
         }
 
-	    private int _reliableMessageNumber;
+	    private int _reliableMessageNumber = -1;
 
 		public void SendPackage(Package package)
         {
+			//Log.Info("Sending: " + package.GetType().Name);
 			SendPackage(package, _mtuSize, ref _reliableMessageNumber);
 			package.PutPool();
 		}

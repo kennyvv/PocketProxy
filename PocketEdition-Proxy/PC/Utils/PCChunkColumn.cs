@@ -150,6 +150,10 @@ namespace PocketProxy.PC.Utils
                 blockid = 0;
                 metadata = 0;
             }
+			else if (blockid == 198) //Grass Path
+			{
+				blockid = 208;
+			}
             return new Tuple<ushort, byte>(blockid, metadata);
         }
 

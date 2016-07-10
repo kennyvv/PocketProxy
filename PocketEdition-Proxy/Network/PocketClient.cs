@@ -542,6 +542,7 @@ namespace PocketProxy.Network
             send.facecoordinates = new Vector3(packet.CursorPositionX/16f, packet.CursorPositionY/16f,
                 packet.CursorPositionZ/16f);
             send.playerposition = new Vector3(CurrentPosition.X, CurrentPosition.Y, CurrentPosition.Z);
+			send.unknown = new byte[4] {0,0,0,0};
             PeClient.SendPackage(send);
         }
 
@@ -719,7 +720,8 @@ namespace PocketProxy.Network
             var index = new Tuple<int, int>(chunk.x, chunk.z);
             if (_loadedChunks.Contains(index))
             {
-                return;
+				UnloadChunk(chunk.x, chunk.z);
+                Thread.Sleep(50);
             }
 
             _loadedChunks.Add(index);

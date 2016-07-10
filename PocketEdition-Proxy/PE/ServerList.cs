@@ -21,8 +21,6 @@ namespace PocketProxy.PE
         /// <returns></returns>
         public static ServerInfo QueryServer(IPEndPoint serverEndPoint)
         {
-	       // return new ServerInfo(10, 0, "test");
-
             IPEndPoint recpoint = new IPEndPoint(IPAddress.Any, 0);
             UdpClient client = new UdpClient
             {

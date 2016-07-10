@@ -61,56 +61,64 @@ namespace PocketProxy.Network
 
         private void PeClient_OnMcpePlayerList(McpePlayerList packet)
         {
-            foreach (var i in packet.records)
-            {
-                var displayName = i.NameTag;
-                var uuid = i.ClientUuid;
-                if (displayName == null) //Player List Remove Packet
-                {
-                    QueuePacket(new RemovePlayerListItem
-                    {
-                        NumberOfPlayers = 1,
-                        UUID = uuid.ToString()
-                    });
+	        if (packet.records is PlayerRemoveRecords)
+	        {
+		        foreach (var i in (PlayerRemoveRecords)packet.records)
+		        {
+			        var uuid = i.ClientUuid;
+			        QueuePacket(new RemovePlayerListItem
+			        {
+				        NumberOfPlayers = 1,
+				        UUID = uuid.ToString()
+			        });
 
-                    if (SendPlayers.Contains(uuid.ToString()))
-                    {
-                        SendPlayers.Remove(uuid.ToString());
-                    }
+			        if (SendPlayers.Contains(uuid.ToString()))
+			        {
+				        SendPlayers.Remove(uuid.ToString());
+			        }
 
-                    PcSkin.RemoveSkinFromCache(uuid.ToString());
-                    return;
-                }
+			        //PcSkin.RemoveSkinFromCache(uuid.ToString());
+		        }
+	        }
+			else if (packet.records is PlayerAddRecords)
+			{
+				foreach (var i in (PlayerAddRecords) packet.records)
+				{
+					var displayName = i.DisplayName;
+					if (displayName == null) continue;
+					
+					var uuid = i.ClientUuid;
 
-                PcSkin.AddSkinToCache(uuid.ToString(), i.Skin.Texture);
+					// PcSkin.AddSkinToCache(uuid.ToString(), i.Skin.Texture);
 
-                var rawDisplayName = displayName;
-                displayName = displayName.RemoveSpecialCharacters();
-                if (displayName.Length > 16)
-                {
-                    displayName = displayName.Substring(0, 16);
-                }
+					var rawDisplayName = displayName;
+					displayName = displayName.RemoveSpecialCharacters();
+					if (displayName.Length > 16)
+					{
+						displayName = displayName.Substring(0, 16);
+					}
 
-                QueuePacket(new AddPlayerListItem
-                {
-                    Gamemode = 0,
-                    HasDisplayName = false,
-                    Name = displayName,
-                    NumberOfPlayers = 1,
-                    Ping = 0,
-                    UUID = uuid.ToString(),
-                    NumberOfProperties = 0
-                }, true);
+					QueuePacket(new AddPlayerListItem
+					{
+						Gamemode = 0,
+						HasDisplayName = false,
+						Name = displayName,
+						NumberOfPlayers = 1,
+						Ping = 0,
+						UUID = uuid.ToString(),
+						NumberOfProperties = 0
+					}, true);
 
-                QueuePacket(new UpdateDisplayName()
-                {
-                    UUID = uuid.ToString(),
-                    HasDisplayName = true,
-                    NumberOfPlayers = 1,
-                    DisplayName = JsonConvert.SerializeObject(new ChatObject(rawDisplayName)),
-                    Action = 3
-                }, true);
-            }
+					QueuePacket(new UpdateDisplayName()
+					{
+						UUID = uuid.ToString(),
+						HasDisplayName = true,
+						NumberOfPlayers = 1,
+						DisplayName = JsonConvert.SerializeObject(new ChatObject(rawDisplayName)),
+						Action = 3
+					}, true);
+				}
+			}
         }
 
         private void PeClient_OnMcpeExplode(McpeExplode packet)
@@ -486,6 +494,12 @@ namespace PocketProxy.Network
         private void PocketEditionClient_OnBlockUpdate(McpeUpdateBlock packet)
         {
 			//TODO: Fix
+			Log.Info("Block ID: " + packet.Id);
+			QueuePacket(new Blockchange
+			{
+				Location = new Vector3(packet.x, packet.y, packet.z),
+				BlockId = packet.Id << 4 | (packet.blockMetaAndPriority & 15)
+			});
 			/*
             if (packet.blocks.Count > 1)
             {
@@ -505,7 +519,7 @@ namespace PocketProxy.Network
                 Location = packet.blocks[0].Coordinates,
                 BlockId = packet.blocks[0].Id << 4 | (packet.blocks[0].Metadata & 15)
             });*/
-        }
+		}
         private void PocketEditionClient_OnPlayerRemoval(long entityId, UUID clientUuid)
         {
             QueuePacket(new Destroyentities
@@ -848,14 +862,17 @@ namespace PocketProxy.Network
                 metadata = 0xff
             });
 
-            SpawnedPlayers.Add((int) packet.entityId, new SpawnedPlayer()
-            {
-                EntityId = (int) packet.entityId,
-                Username = packet.username,
-                UUID = packet.uuid.ToString()
-            });
+	        if (!SpawnedPlayers.ContainsKey((int) packet.entityId))
+	        {
+		        SpawnedPlayers.Add((int) packet.entityId, new SpawnedPlayer()
+		        {
+			        EntityId = (int) packet.entityId,
+			        Username = packet.username,
+			        UUID = packet.uuid.ToString()
+		        });
+	        }
 
-            SendPlayerMetadata((int)packet.entityId, packet.metadata);
+	        SendPlayerMetadata((int)packet.entityId, packet.metadata);
         }
 
         private void PocketEditionClient_OnDisconnect(string reason)
@@ -957,9 +974,7 @@ namespace PocketProxy.Network
                     UUID = PcClientUuid.ToString()
                 });
 
-                McpeRequestChunkRadius request = McpeRequestChunkRadius.CreateObject();
-                request.chunkRadius = ChunkRadius;
-                PeClient.SendPackage(request);
+               
             }
             else
             {
@@ -988,7 +1003,11 @@ namespace PocketProxy.Network
                 TeleportID = 0
             });
 
-            _spawned = true;
+			McpeRequestChunkRadius request = McpeRequestChunkRadius.CreateObject();
+	        request.chunkRadius = ChunkRadius;
+			PeClient.SendPackage(request);
+
+			_spawned = true;
         }
 
         private void SendPlayerMetadata(int entityid, MetadataDictionary metadata)
