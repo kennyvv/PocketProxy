@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Numerics;
 using System.Text;
 using fNbt;
 using MiNET.Utils;
@@ -457,9 +458,9 @@ namespace PocketProxy.PC.Utils
         public Vector3 ReadPosition()
         {
             var val = ReadLong();
-            double x = val >> 38;
-            double y = (val >> 26) & 0xFFF;
-            double z = val << 38 >> 38;
+            float x = val >> 38;
+            float y = (val >> 26) & 0xFFF;
+            float z = val << 38 >> 38;
 
             return new Vector3(x, y, z);
         }

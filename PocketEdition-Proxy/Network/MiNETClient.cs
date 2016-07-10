@@ -5,10 +5,13 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using fNbt;
+using Jose;
 using log4net;
 using MiNET;
 using MiNET.BlockEntities;
@@ -24,13 +27,13 @@ namespace PocketProxy.Network
         private static readonly ILog Log = LogManager.GetLogger(typeof (MiNetClient));
 
         private IPEndPoint _clientEndpoint;
-        private readonly IPEndPoint _serverEndpoint;
-        private short _mtuSize = 1447;
+        private IPEndPoint _serverEndpoint;
+        private short _mtuSize = 1400;
         private int ClientId { get; }
 
         private PlayerNetworkSession Session { get; set; }
-
-        private int _clientGuid;
+		 
+        private long _clientGuid = new Random().Next();
 
         private UdpClient UdpClient { get; set; }
 
@@ -66,7 +69,7 @@ namespace PocketProxy.Network
                     DontFragment = false
                 };
 
-                Session = new PlayerNetworkSession(null, _clientEndpoint, 1300);
+                Session = new PlayerNetworkSession(null, _clientEndpoint, _mtuSize);
 
                 UdpClient.BeginReceive(ReceiveCallback, UdpClient);
                 _clientEndpoint = (IPEndPoint) UdpClient.Client.LocalEndPoint;
@@ -115,169 +118,295 @@ namespace PocketProxy.Network
         /// <param name="ar">The results</param>
         private void ReceiveCallback(IAsyncResult ar)
         {
-            UdpClient listener = (UdpClient) ar.AsyncState;
+			UdpClient listener = (UdpClient)ar.AsyncState;
 
-            if (listener.Client == null) return;
+			if (listener.Client == null) return;
 
-            // WSAECONNRESET:
-            // The virtual circuit was reset by the remote side executing a hard or abortive close. 
-            // The application should close the socket; it is no longer usable. On a UDP-datagram socket 
-            // this error indicates a previous send operation resulted in an ICMP Port Unreachable message.
-            // Note the spocket settings on creation of the server. It makes us ignore these resets.
-            IPEndPoint senderEndpoint = new IPEndPoint(0, 0);
-            Byte[] receiveBytes;
-            try
-            {
-                receiveBytes = listener.EndReceive(ar, ref senderEndpoint);
-            }
-            catch (Exception e)
-            {
-                if (listener.Client == null) return;
-                Log.Debug(e);
-                try
-                {
-                    listener.BeginReceive(ReceiveCallback, listener);
-                }
-                catch (ObjectDisposedException dex)
-                {
-                    // Log and move on. Should probably free up the player and remove them here.
-                    Log.Debug(dex);
-                }
+			// WSAECONNRESET:
+			// The virtual circuit was reset by the remote side executing a hard or abortive close. 
+			// The application should close the socket; it is no longer usable. On a UDP-datagram socket 
+			// this error indicates a previous send operation resulted in an ICMP Port Unreachable message.
+			// Note the spocket settings on creation of the server. It makes us ignore these resets.
+			IPEndPoint senderEndpoint = new IPEndPoint(0, 0);
+			Byte[] receiveBytes;
+			try
+			{
+				receiveBytes = listener.EndReceive(ar, ref senderEndpoint);
+			}
+			catch (Exception e)
+			{
+				if (listener.Client == null) return;
+				Log.Error("Recieve processing", e);
 
-                return;
-            }
+				try
+				{
+					listener.BeginReceive(ReceiveCallback, listener);
+				}
+				catch (ObjectDisposedException dex)
+				{
+					// Log and move on. Should probably free up the player and remove them here.
+					Log.Error("Recieve processing", dex);
+				}
 
-            if (receiveBytes.Length != 0)
-            {
-                if (listener.Client == null) return;
+				return;
+			}
 
-                try
-                {
-                    listener.BeginReceive(ReceiveCallback, listener);
+			if (receiveBytes.Length != 0)
+			{
+				if (listener.Client == null) return;
+				try
+				{
+					listener.BeginReceive(ReceiveCallback, listener);
 
-                    if (listener.Client == null) return;
+					if (listener.Client == null) return;
+					ProcessMessage(receiveBytes, senderEndpoint);
+				}
+				catch (Exception e)
+				{
+					Log.Error("Processing", e);
+				}
+			}
+			else
+			{
+				Log.Error("Unexpected end of transmission?");
+			}
+		}
 
-                    ProcessMessage(receiveBytes, senderEndpoint);
-                }
-                catch (Exception e)
-                {
-                    Log.Debug("Processing", e);
-                }
-            }
-            else
-            {
-                Log.Debug("Unexpected end of transmission?");
-            }
-        }
+		/// <summary>
+		///     Processes a message.
+		/// </summary>
+		/// <param name="receiveBytes">The received bytes.</param>
+		/// <param name="senderEndpoint">The sender's endpoint.</param>
+		/// <exception cref="System.Exception">Receive ERROR, NAK in wrong place</exception>
+		private void ProcessMessage(byte[] receiveBytes, IPEndPoint senderEndpoint)
+		{
+			byte msgId = receiveBytes[0];
 
-        /// <summary>
-        ///     Processes a message.
-        /// </summary>
-        /// <param name="receiveBytes">The received bytes.</param>
-        /// <param name="senderEndpoint">The sender's endpoint.</param>
-        /// <exception cref="System.Exception">Receive ERROR, NAK in wrong place</exception>
-        private void ProcessMessage(byte[] receiveBytes, IPEndPoint senderEndpoint)
-        {
-            byte msgId = receiveBytes[0];
+			if (msgId <= (byte)DefaultMessageIdTypes.ID_USER_PACKET_ENUM)
+			{
+				DefaultMessageIdTypes msgIdType = (DefaultMessageIdTypes)msgId;
 
-            if (msgId <= (byte) DefaultMessageIdTypes.ID_USER_PACKET_ENUM)
-            {
-                DefaultMessageIdTypes msgIdType = (DefaultMessageIdTypes)msgId;
+				Package message = PackageFactory.CreatePackage(msgId, receiveBytes, "raknet");
 
-                Package message = PackageFactory.CreatePackage(msgId, receiveBytes);
+				if (message == null) return;
 
-                if (message == null) return;
+				//TraceReceive(message);
 
-                switch (msgIdType)
-                {
-                    case DefaultMessageIdTypes.ID_UNCONNECTED_PONG:
-                        {
-                            SendOpenConnectionRequest1();
+				switch (msgIdType)
+				{
+					case DefaultMessageIdTypes.ID_UNCONNECTED_PONG:
+						{
+							UnconnectedPong incoming = (UnconnectedPong)message;
+							Log.Warn($"MOTD {incoming.serverName}");
+							//if (!HaveServer)
+							//{
+								_serverEndpoint = senderEndpoint;
+								//HaveServer = true;
+								SendOpenConnectionRequest1();
+							//}
 
-                            break;
-                        }
-                    case DefaultMessageIdTypes.ID_OPEN_CONNECTION_REPLY_1:
-                        {
-                            OpenConnectionReply1 incoming = (OpenConnectionReply1)message;
-                            _mtuSize = incoming.mtuSize;
-                            SendOpenConnectionRequest2();
-                            break;
-                        }
-                    case DefaultMessageIdTypes.ID_OPEN_CONNECTION_REPLY_2:
-                        {
-                            SendConnectionRequest();
-                            break;
-                        }
-                }
-            }
-            else
-            {
-                DatagramHeader header = new DatagramHeader(receiveBytes[0]);
-                if (!header.isACK && !header.isNAK && header.isValid)
-                {
-                    if (receiveBytes[0] == 0xa0)
-                    {
-                        throw new Exception("Receive ERROR, NAK in wrong place");
-                    }
+							break;
+						}
+					case DefaultMessageIdTypes.ID_OPEN_CONNECTION_REPLY_1:
+						{
+							OpenConnectionReply1 incoming = (OpenConnectionReply1)message;
+							if (incoming.mtuSize != _mtuSize) Log.Warn("Requested MTUSize: " + incoming.mtuSize);
+							Log.Warn("Security: " + (incoming.serverHasSecurity == 1 ? "True" : "False"));
+							_mtuSize = incoming.mtuSize;
+							SendOpenConnectionRequest2();
+							break;
+						}
+					case DefaultMessageIdTypes.ID_OPEN_CONNECTION_REPLY_2:
+						{
+							OnOpenConnectionReply2((OpenConnectionReply2)message);
+							break;
+						}
+					case DefaultMessageIdTypes.ID_NO_FREE_INCOMING_CONNECTIONS:
+						{
+							OnNoFreeIncomingConnections((NoFreeIncomingConnections)message);
+							break;
+						}
+				}
+			}
+			else
+			{
+				DatagramHeader header = new DatagramHeader(receiveBytes[0]);
+				if (!header.isACK && !header.isNAK && header.isValid)
+				{
+					if (receiveBytes[0] == 0xa0)
+					{
+						throw new Exception("Receive ERROR, NAK in wrong place");
+					}
 
-                    ConnectedPackage package = ConnectedPackage.CreateObject();
-                    package.Decode(receiveBytes);
-                    header = package._datagramHeader;
- 
-                    var messages = package.Messages;
+					//if (IsEmulator && PlayerStatus == 3)
+					//{
+					//	int datagramId = new Int24(new[] {receiveBytes[1], receiveBytes[2], receiveBytes[3]});
 
-                    //ACKS
-                    Acks ack = Acks.CreateObject();
-                    ack.acks.Add(package._datagramSequenceNumber.IntValue());
-                    byte[] data = ack.Encode();
-                    SendData(data, senderEndpoint);
-                    //END ACKS
+					//	//Acks ack = Acks.CreateObject();
+					//	Acks ack = new Acks();
+					//	ack.acks.Add(datagramId);
+					//	byte[] data = ack.Encode();
+					//	ack.PutPool();
+					//	SendData(data, senderEndpoint);
 
-                    foreach (var message in messages)
-                    {
-                        if (message is SplitPartPackage)
-                        {
-                            lock (Session.SyncRoot)
-                            {
-                                HandleSplitMessage(Session, package, (SplitPartPackage)message);
-                            }
+					//	//return;
+					//}
 
-                            continue;
-                        }
+					ConnectedPackage package = ConnectedPackage.CreateObject();
+					//var package = new ConnectedPackage();
+					package.Decode(receiveBytes);
+					header = package._datagramHeader;
+					//Log.Debug($"> Datagram #{header.datagramSequenceNumber}, {package._hasSplit}, {package._splitPacketId}, {package._reliability}, {package._reliableMessageNumber}, {package._sequencingIndex}, {package._orderingChannel}, {package._orderingIndex}");
 
-                        message.Timer.Restart();
-                        HandlePackage(message);
-                        message.PutPool();
-                    }
-                    package.PutPool();
-                }
-                else if (header.isPacketPair)
-                {
-                    Log.Warn("!! Packet Pair");
-                }
-                else if (header.isACK && header.isValid)
-                {
-                    HandleAck(receiveBytes, senderEndpoint);
-                }
-                else if (header.isNAK && header.isValid)
-                {
-                    Nak nak = new Nak();
-                    nak.Decode(receiveBytes);
-                    HandleNak(receiveBytes, senderEndpoint);
-                }
-                else if (!header.isValid)
-                {
-                    Log.Warn("!! Invalid header");
-                }
-                else
-                {
-                    Log.Warn("!! Unknown");
-                }
-            }
-        }
+					{
+						Acks ack = Acks.CreateObject();
+						ack.acks.Add(package._datagramSequenceNumber.IntValue());
+						byte[] data = ack.Encode();
+						ack.PutPool();
+						SendData(data, senderEndpoint);
+					}
 
+					HandleConnectedPackage(package);
+					package.PutPool();
+				}
+				else if (header.isPacketPair)
+				{
+					Log.Warn("header.isPacketPair");
+				}
+				else if (header.isACK && header.isValid)
+				{
+					HandleAck(receiveBytes, senderEndpoint);
+				}
+				else if (header.isNAK && header.isValid)
+				{
+					Nak nak = new Nak();
+					nak.Decode(receiveBytes);
+					HandleNak(receiveBytes, senderEndpoint);
+				}
+				else if (!header.isValid)
+				{
+					Log.Warn("!!!! ERROR, Invalid header !!!!!");
+				}
+				else
+				{
+					Log.Warn("!! WHAT THE F");
+				}
+			}
+		}
 
-        private void HandleAck(byte[] receiveBytes, IPEndPoint senderEndpoint)
+		private void HandleConnectedPackage(ConnectedPackage package)
+		{
+			foreach (var message in package.Messages)
+			{
+				if (message is SplitPartPackage)
+				{
+					HandleSplitMessage(Session, (SplitPartPackage)message);
+
+					continue;
+				}
+
+			//	TraceReceive(message);
+
+				message.Timer.Restart();
+				AddToProcessing(message);
+			}
+		}
+
+		private long _lastSequenceNumber = -1; // That's the first message with wrapper
+		private AutoResetEvent _waitEvent = new AutoResetEvent(false);
+		private AutoResetEvent _mainWaitEvent = new AutoResetEvent(false);
+		private object _eventSync = new object();
+		private ConcurrentPriorityQueue<int, Package> _queue = new ConcurrentPriorityQueue<int, Package>();
+
+		public void AddToProcessing(Package message)
+		{
+			if (message.Reliability != Reliability.ReliableOrdered)
+			{
+				HandlePackage(message);
+				return;
+			}
+
+			lock (_eventSync)
+			{
+				if (_queue.Count == 0 && message.OrderingIndex == _lastSequenceNumber + 1)
+				{
+					_lastSequenceNumber = message.OrderingIndex;
+					HandlePackage(message);
+					return;
+				}
+
+				_queue.Enqueue(message.OrderingIndex, message);
+				WaitHandle.SignalAndWait(_waitEvent, _mainWaitEvent);
+			}
+		}
+
+		private Task ProcessQueue()
+		{
+			while (true)
+			{
+				KeyValuePair<int, Package> pair;
+
+				if (_queue.TryPeek(out pair))
+				{
+					if (pair.Key == _lastSequenceNumber + 1)
+					{
+						if (_queue.TryDequeue(out pair))
+						{
+							_lastSequenceNumber = pair.Key;
+
+							HandlePackage(pair.Value);
+
+							if (_queue.Count == 0)
+							{
+								WaitHandle.SignalAndWait(_mainWaitEvent, _waitEvent, TimeSpan.FromMilliseconds(50), true);
+							}
+						}
+					}
+					else if (pair.Key <= _lastSequenceNumber)
+					{
+						if (Log.IsDebugEnabled) Log.Warn($"{Username} - Resent. Expected {_lastSequenceNumber + 1}, but was {pair.Key}.");
+						if (_queue.TryDequeue(out pair))
+						{
+							pair.Value.PutPool();
+						}
+					}
+					else
+					{
+						if (Log.IsDebugEnabled) Log.Warn($"{Username} - Wrong sequence. Expected {_lastSequenceNumber + 1}, but was {pair.Key}.");
+						WaitHandle.SignalAndWait(_mainWaitEvent, _waitEvent, TimeSpan.FromMilliseconds(50), true);
+					}
+				}
+				else
+				{
+					if (_queue.Count == 0)
+					{
+						WaitHandle.SignalAndWait(_mainWaitEvent, _waitEvent, TimeSpan.FromMilliseconds(50), true);
+					}
+				}
+			}
+
+			//Log.Warn($"Exit receive handler task for {Player.Username}");
+			return Task.CompletedTask;
+		}
+
+		private void OnOpenConnectionReply2(OpenConnectionReply2 message)
+		{
+			Log.Warn("MTU Size: " + message.mtuSize);
+			Log.Warn("Client Endpoint: " + message.clientEndpoint);
+
+			//_serverEndpoint = message.clientEndpoint;
+
+			_mtuSize = message.mtuSize;
+			Thread.Sleep(100);
+			SendConnectionRequest();
+		}
+
+		private void HandleOpenConnectionReply2(OpenConnectionReply2 message)
+		{
+			SendConnectionRequest();
+		}
+
+		private void HandleAck(byte[] receiveBytes, IPEndPoint senderEndpoint)
         {
 			
         }
@@ -286,64 +415,119 @@ namespace PocketProxy.Network
         {
 			
         }
+		private void OnNoFreeIncomingConnections(NoFreeIncomingConnections message)
+		{
+			Log.Error("No free connections from server ");
+			//StopClient();
+		}
+		private void HandleSplitMessage(PlayerNetworkSession playerSession, SplitPartPackage splitMessage)
+		{
+			int spId = splitMessage.SplitId;
+			int spIdx = splitMessage.SplitIdx;
+			int spCount = splitMessage.SplitCount;
 
-        private void HandleSplitMessage(PlayerNetworkSession playerSession, ConnectedPackage package,
-            SplitPartPackage splitMessage)
-        {
-            int spId = package._splitPacketId;
-            int spIdx = package._splitPacketIndex;
-            int spCount = package._splitPacketCount;
+			Int24 sequenceNumber = splitMessage.DatagramSequenceNumber;
+			Reliability reliability = splitMessage.Reliability;
+			Int24 reliableMessageNumber = splitMessage.ReliableMessageNumber;
+			Int24 orderingIndex = splitMessage.OrderingIndex;
+			byte orderingChannel = splitMessage.OrderingChannel;
 
-            if (!playerSession.Splits.ContainsKey(spId))
-            {
-                playerSession.Splits.TryAdd(spId, new SplitPartPackage[spCount]);
-            }
+			if (!playerSession.Splits.ContainsKey(spId))
+			{
+				playerSession.Splits.TryAdd(spId, new SplitPartPackage[spCount]);
+			}
 
-            SplitPartPackage[] spPackets = playerSession.Splits[spId];
-            spPackets[spIdx] = splitMessage;
+			SplitPartPackage[] spPackets = playerSession.Splits[spId];
+			spPackets[spIdx] = splitMessage;
 
-            bool haveEmpty = spPackets.Aggregate(false, (current, t) => current || t == null);
+			bool haveEmpty = false;
+			for (int i = 0; i < spPackets.Length; i++)
+			{
+				haveEmpty = haveEmpty || spPackets[i] == null;
+			}
 
-            if (haveEmpty) return;
+			if (!haveEmpty)
+			{
+				Log.DebugFormat("Got all {0} split packages for split ID: {1}", spCount, spId);
 
-            SplitPartPackage[] waste;
-            playerSession.Splits.TryRemove(spId, out waste);
+				SplitPartPackage[] waste;
+				playerSession.Splits.TryRemove(spId, out waste);
 
-            byte[] buffer;
-            using (MemoryStream stream = new MemoryStream())
-            {
-                foreach (SplitPartPackage splitPartPackage in spPackets)
-                {
-                    byte[] buf = splitPartPackage.Message;
-                    stream.Write(buf, 0, buf.Length);
-                    splitPartPackage.PutPool();
-                }
+				MemoryStream stream = new MemoryStream();
+				for (int i = 0; i < spPackets.Length; i++)
+				{
+					SplitPartPackage splitPartPackage = spPackets[i];
+					byte[] buf = splitPartPackage.Message;
+					if (buf == null)
+					{
+						Log.Error("Expected bytes in splitpart, but got none");
+						continue;
+					}
 
-                buffer = stream.ToArray();
-            }
+					stream.Write(buf, 0, buf.Length);
+					splitPartPackage.PutPool();
+				}
 
-            byte id = buffer[0];
-            if (id == 0x8e)
-            {
-                id = buffer[1];
-            }
+				byte[] buffer = stream.ToArray();
+				try
+				{
+					ConnectedPackage newPackage = ConnectedPackage.CreateObject();
+					newPackage._datagramSequenceNumber = sequenceNumber;
+					newPackage._reliability = reliability;
+					newPackage._reliableMessageNumber = reliableMessageNumber;
+					newPackage._orderingIndex = orderingIndex;
+					newPackage._orderingChannel = (byte)orderingChannel;
+					newPackage._hasSplit = false;
 
-            Package fullMessage = PackageFactory.CreatePackage(id, buffer) ?? new UnknownPackage(id, buffer);
-            fullMessage.DatagramSequenceNumber = package._datagramSequenceNumber;
-            fullMessage.OrderingChannel = package._orderingChannel;
-            fullMessage.OrderingIndex = package._orderingIndex;
+					Package fullMessage = PackageFactory.CreatePackage(buffer[0], buffer, "raknet") ?? new UnknownPackage(buffer[0], buffer);
+					fullMessage.DatagramSequenceNumber = sequenceNumber;
+					fullMessage.Reliability = reliability;
+					fullMessage.ReliableMessageNumber = reliableMessageNumber;
+					fullMessage.OrderingIndex = orderingIndex;
+					fullMessage.OrderingChannel = orderingChannel;
 
-            HandlePackage(fullMessage);
-            fullMessage.PutPool();
-        }
+					newPackage.Messages = new List<Package>();
+					newPackage.Messages.Add(fullMessage);
 
-        public delegate void DisconnectDelegate(string reason);
+					Log.Debug($"Assembled split package {newPackage._reliability} message #{newPackage._reliableMessageNumber}, Chan: #{newPackage._orderingChannel}, OrdIdx: #{newPackage._orderingIndex}");
+					HandleConnectedPackage(newPackage);
+					newPackage.PutPool();
+				}
+				catch (Exception e)
+				{
+					Log.Error("Error during split message parsing", e);
+					if (Log.IsDebugEnabled)
+						Log.Debug($"0x{buffer[0]:x2}\n{Package.HexDump(buffer)}");
+					playerSession.Player?.Disconnect("Bad package received from client.");
+				}
+			}
+		}
+
+		public delegate void DisconnectDelegate(string reason);
 
         public event DisconnectDelegate OnDisconnect;
 
         private void HandlePackage(Package message)
         {
-            if (typeof (McpeBatch) == message.GetType())
+            Console.WriteLine("Packet: " + message);
+
+			if (typeof(McpeWrapper) == message.GetType())
+			{
+				OnWrapper((McpeWrapper)message);
+
+				//FirstPacketWaitHandle.Set();
+
+				return;
+			}
+
+			if (typeof(McpeServerExchange) == message.GetType())
+			{
+				OnMcpeServerExchange((McpeServerExchange)message);
+
+				return;
+			}
+
+			if (typeof (McpeBatch) == message.GetType())
             {
                 OnBatch(message);
                 return;
@@ -380,6 +564,7 @@ namespace PocketProxy.Network
             if (typeof (ConnectionRequestAccepted) == message.GetType())
             {
                 OnConnectionRequestAccepted();
+                OnStartGame?.Invoke(GameMode.Creative, SpawnPosition, 0);
                 return;
             }
 
@@ -419,9 +604,9 @@ namespace PocketProxy.Network
                 return;
             }
 
-            if (typeof (McpePlayerEquipment) == message.GetType())
+            if (typeof (McpeMobEquipment) == message.GetType())
             {
-                OnMcpePlayerEquipment((McpePlayerEquipment) message);
+                OnMcpePlayerEquipment((McpeMobEquipment) message);
                 return;
             }
 
@@ -473,9 +658,9 @@ namespace PocketProxy.Network
                 return;
             }
 
-            if (typeof (McpeRemovePlayer) == message.GetType())
+            if (typeof (McpeRemoveEntity) == message.GetType())
             {
-                OnRemovePlayer((McpeRemovePlayer) message);
+                OnRemovePlayer((McpeRemoveEntity) message);
                 return;
             }
 
@@ -503,15 +688,15 @@ namespace PocketProxy.Network
                 return;
             }
 
-            if (typeof (McpeTileEntityData) == message.GetType())
+            if (typeof (McpeBlockEntityData) == message.GetType())
             {
-                OnTileEntityData?.Invoke((McpeTileEntityData) message);
+                OnTileEntityData?.Invoke((McpeBlockEntityData) message);
                 return;
             }
 
-            if (typeof (McpePlayerArmorEquipment) == message.GetType())
+            if (typeof (McpeMobArmorEquipment) == message.GetType())
             {
-                OnMcpePlayerArmor?.Invoke((McpePlayerArmorEquipment) message);
+                OnMcpePlayerArmor?.Invoke((McpeMobArmorEquipment) message);
                 return;
             }
 
@@ -523,6 +708,9 @@ namespace PocketProxy.Network
 
             if (typeof (McpePlayerStatus) == message.GetType())
             {
+                var packet = ((McpePlayerStatus) message);
+                PlayerStatus = packet.status;
+
                 OnMcpePlayerStatus?.Invoke((McpePlayerStatus)message);
                 return;
             }
@@ -575,9 +763,9 @@ namespace PocketProxy.Network
                 return;
             }
 
-            if (typeof (McpeTileEvent) == message.GetType())
+            if (typeof (McpeBlockEvent) == message.GetType())
             {
-                OnMcpeTileEvent?.Invoke((McpeTileEvent) message);
+                OnMcpeTileEvent?.Invoke((McpeBlockEvent) message);
                 return;
             }
 
@@ -602,8 +790,8 @@ namespace PocketProxy.Network
         public event PacketDelegate<McpeAnimate> OnMcpeAnimate;
         public event PacketDelegate<McpeRespawn> OnMcpeRespawn; 
         public event PacketDelegate<McpePlayerAction> OnPlayerAction;
-        public event PacketDelegate<McpeTileEntityData> OnTileEntityData;
-        public event PacketDelegate<McpePlayerArmorEquipment> OnMcpePlayerArmor;
+        public event PacketDelegate<McpeBlockEntityData> OnTileEntityData;
+        public event PacketDelegate<McpeMobArmorEquipment> OnMcpePlayerArmor;
         public event PacketDelegate<McpeRemoveEntity> OnMcpeRemoveEntity;
         public event PacketDelegate<McpePlayerStatus> OnMcpePlayerStatus;
         public event PacketDelegate<McpeAddItemEntity> OnMcpeAddItemEntity;
@@ -612,7 +800,7 @@ namespace PocketProxy.Network
         public event PacketDelegate<McpeAdventureSettings> OnMcpeAdventureSettings;
         public event PacketDelegate<McpeEntityEvent> OnMcpeEntityEvent;
         public event PacketDelegate<McpeContainerOpen> OnMcpeContainerOpen;
-        public event PacketDelegate<McpeTileEvent> OnMcpeTileEvent;
+        public event PacketDelegate<McpeBlockEvent> OnMcpeTileEvent;
         public event PacketDelegate<McpeExplode> OnMcpeExplode;
         public event PacketDelegate<McpeMobEffect> OnMcpeMobEffect;
 
@@ -620,9 +808,108 @@ namespace PocketProxy.Network
 
         public event McpeRemovePlayerDelegate OnPlayerRemoval;
 
-        private void OnRemovePlayer(McpeRemovePlayer message)
+		private void OnMcpeServerExchange(McpeServerExchange message)
+		{
+			string serverKey = message.serverPublicKey;
+			byte[] randomKeyToken = message.token;
+
+			// Initiate encryption
+
+			InitiateEncryption(serverKey, randomKeyToken);
+		}
+
+		private void InitiateEncryption(string serverKey, byte[] randomKeyToken)
+		{
+			{
+				ECDiffieHellmanPublicKey publicKey = CryptoUtils.CreateEcDiffieHellmanPublicKey(serverKey);
+				Log.Debug("ServerKey (b64):\n" + serverKey);
+				Log.Debug($"Cert:\n{publicKey.ToXmlString()}");
+
+				Log.Debug($"RANDOM TOKEN (raw):\n{randomKeyToken}");
+
+				if (randomKeyToken.Length != 0)
+				{
+					Log.Error("Lenght of random bytes: " + randomKeyToken.Length);
+				}
+
+				// Create shared shared secret
+				ECDiffieHellmanCng ecKey = new ECDiffieHellmanCng(Session.CryptoContext.ClientKey);
+				ecKey.HashAlgorithm = CngAlgorithm.Sha256;
+				ecKey.KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash;
+				ecKey.SecretPrepend = randomKeyToken; // Server token
+
+				byte[] secret = ecKey.DeriveKeyMaterial(publicKey);
+
+				//Log.Debug($"SECRET KEY (b64):\n{Convert.ToBase64String(secret)}");
+				Log.Debug($"SECRET KEY (raw):\n{Encoding.UTF8.GetString(secret)}");
+
+				{
+					RijndaelManaged rijAlg = new RijndaelManaged
+					{
+						BlockSize = 128,
+						Padding = PaddingMode.None,
+						Mode = CipherMode.CFB,
+						FeedbackSize = 8,
+						Key = secret,
+						IV = secret.Take(16).ToArray(),
+					};
+
+					// Create a decrytor to perform the stream transform.
+					ICryptoTransform decryptor = rijAlg.CreateDecryptor(rijAlg.Key, rijAlg.IV);
+					MemoryStream inputStream = new MemoryStream();
+					CryptoStream cryptoStreamIn = new CryptoStream(inputStream, decryptor, CryptoStreamMode.Read);
+
+					ICryptoTransform encryptor = rijAlg.CreateEncryptor(rijAlg.Key, rijAlg.IV);
+					MemoryStream outputStream = new MemoryStream();
+					CryptoStream cryptoStreamOut = new CryptoStream(outputStream, encryptor, CryptoStreamMode.Write);
+
+					Session.CryptoContext = new CryptoContext
+					{
+						Algorithm = rijAlg,
+						Decryptor = decryptor,
+						Encryptor = encryptor,
+						InputStream = inputStream,
+						OutputStream = outputStream,
+						CryptoStreamIn = cryptoStreamIn,
+						CryptoStreamOut = cryptoStreamOut,
+						UseEncryption = true,
+					};
+				}
+
+				Thread.Sleep(1250);
+				McpeClientMagic magic = new McpeClientMagic();
+				//SendPackage(magic);
+
+				var payload = Player.CompressBytes(magic.Encode(), CompressionLevel.Fastest, true);
+
+				McpeBatch batch = new McpeBatch
+				{
+					payloadSize = payload.Length,
+					payload = payload
+				};
+				SendPackage(batch);
+			}
+		}
+
+		private void OnWrapper(McpeWrapper message)
+		{
+			// Get bytes
+			byte[] payload = message.payload;
+			//if (playerSession.CryptoContext != null && Config.GetProperty("UseEncryption", true))
+			//{
+			//	payload = CryptoUtils.Decrypt(payload, playerSession.CryptoContext);
+			//}
+
+			//if (Log.IsDebugEnabled)
+			//	Log.Debug($"0x{payload[0]:x2}\n{Package.HexDump(payload)}");
+
+			Package newMessage = PackageFactory.CreatePackage(payload[0], payload, "mcpe") ?? new UnknownPackage(payload[0], payload);
+			HandlePackage(newMessage);
+		}
+
+		private void OnRemovePlayer(McpeRemoveEntity message)
         {
-            OnPlayerRemoval?.Invoke(message.entityId, message.clientUuid);
+           // OnPlayerRemoval?.Invoke(message.entityId, message.clientUuid);
         }
 
         public event PacketDelegate<McpeAddEntity> OnEntityAdd;
@@ -669,7 +956,7 @@ namespace PocketProxy.Network
 
         public event McpePlayerEquipmentDelegate OnPlayerEquipment;
 
-        private void OnMcpePlayerEquipment(McpePlayerEquipment message)
+        private void OnMcpePlayerEquipment(McpeMobEquipment message)
         {
             OnPlayerEquipment?.Invoke(message.entityId, message.item);
         }
@@ -745,13 +1032,15 @@ namespace PocketProxy.Network
         public delegate void McpeSetSpawnPositionDelegate(Vector3 location);
 
         public event McpeSetSpawnPositionDelegate OnSetSpawnPosition;
-
+        private Vector3 SpawnPosition = new Vector3(0,0,0);
         private void OnMcpeSetSpawnPosition(Package message)
         {
             McpeSetSpawnPosition msg = (McpeSetSpawnPosition) message;
-
-            OnSetSpawnPosition?.Invoke(new Vector3(msg.x, msg.y, msg.z));
+            SpawnPosition = new Vector3(msg.x, msg.y, msg.z);
+            OnSetSpawnPosition?.Invoke(SpawnPosition);
         }
+
+        public int PlayerStatus { get; set; }
 
         private void OnConnectionRequestAccepted()
         {
@@ -767,89 +1056,89 @@ namespace PocketProxy.Network
         private void OnFullChunkData(Package message)
         {
             McpeFullChunkData msg = (McpeFullChunkData) message;
-            ChunkColumn chunk = new ChunkColumn
-            {
-                x = msg.chunkX,
-                z = msg.chunkZ
-            };
+			 ChunkColumn chunk = new ChunkColumn
+			 {
+				 x = msg.chunkX,
+				 z = msg.chunkZ
+			 };
 
-            using (var memStream = new MemoryStream(msg.chunkData))
-            {
-                using (NbtBinaryReader defStream = new NbtBinaryReader(memStream, true))
-                {
-                    int chunkSize = 16*16*128;
-                    defStream.Read(chunk.blocks, 0, chunkSize);
-                    defStream.Read(chunk.metadata.Data, 0, chunkSize/2);
-                    defStream.Read(chunk.skylight.Data, 0, chunkSize/2);
-                    defStream.Read(chunk.blocklight.Data, 0, chunkSize/2);
-                    defStream.Read(chunk.height, 0, 256);
+			 using (var memStream = new MemoryStream(msg.chunkData))
+			 {
+				 using (NbtBinaryReader defStream = new NbtBinaryReader(memStream, true))
+				 {
+					 int chunkSize = 16*16*128;
+					 defStream.Read(chunk.blocks, 0, chunkSize);
+					 defStream.Read(chunk.metadata.Data, 0, chunkSize/2);
+					 defStream.Read(chunk.skylight.Data, 0, chunkSize/2);
+					 defStream.Read(chunk.blocklight.Data, 0, chunkSize/2);
+					 defStream.Read(chunk.height, 0, 256);
 
-                    byte[] ints = new byte[256 * 4];
-                    defStream.Read(ints, 0, ints.Length);
-                    int j = 0;
-                    for (int i = 0; i < ints.Length; i = i + 4)
-                    {
-                        chunk.biomeColor[j++] = BitConverter.ToInt32(new[] { ints[i], ints[i + 1], ints[i + 2], ints[i + 3] }, 0);
-                    }
+					 byte[] ints = new byte[256 * 4];
+					 defStream.Read(ints, 0, ints.Length);
+					 int j = 0;
+					 for (int i = 0; i < ints.Length; i = i + 4)
+					 {
+						 chunk.biomeColor[j++] = BitConverter.ToInt32(new[] { ints[i], ints[i + 1], ints[i + 2], ints[i + 3] }, 0);
+					 }
 
-                    defStream.ReadInt32(); //Extra Size
-                    
-                    while (memStream.Position < memStream.Length)
-                    {
-                        try
-                        {
-                            NbtFile nbtFile = new NbtFile() {BigEndian = false};
-                            nbtFile.LoadFromStream(memStream, NbtCompression.None);
+					 defStream.ReadInt32(); //Extra Size
 
-                            var compound = nbtFile.RootTag;
+					 while (memStream.Position < memStream.Length)
+					 {
+						 try
+						 {
+							 NbtFile nbtFile = new NbtFile() {BigEndian = false};
+							 nbtFile.LoadFromStream(memStream, NbtCompression.None);
 
-                            NbtTag val;
-                            if (compound.TryGet("id", out val))
-                            {
-                                if (val.StringValue == "Sign")
-                                {
-                                    Sign s = new Sign
-                                    {
-                                        Text1 = compound["Text1"].StringValue,
-                                        Text2 = compound["Text2"].StringValue,
-                                        Text3 = compound["Text3"].StringValue,
-                                        Text4 = compound["Text4"].StringValue,
-                                        Coordinates =
-                                            new BlockCoordinates(compound["x"].IntValue, compound["y"].IntValue,
-                                                compound["z"].IntValue)
-                                    };
-                                
-                                    chunk.BlockEntities.Add(s.Coordinates, s.GetCompound());
-                                }
-                                else if (val.StringValue == "Skull")
-                                {
-                                    SkullBlockEntity s = new SkullBlockEntity
-                                    {
-                                        SkullType = compound["SkullType"].ByteValue,
-                                        Rotation = compound["Rot"].ByteValue,
-                                        Coordinates =
-                                            new BlockCoordinates(compound["x"].IntValue, compound["y"].IntValue,
-                                                compound["z"].IntValue)
-                                    };
+							 var compound = nbtFile.RootTag;
 
-                                    chunk.BlockEntities.Add(s.Coordinates, s.GetCompound());
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            //
-                        }
-                    }
-                }
-            }
+							 NbtTag val;
+							 if (compound.TryGet("id", out val))
+							 {
+								 if (val.StringValue == "Sign")
+								 {
+									 Sign s = new Sign
+									 {
+										 Text1 = compound["Text1"].StringValue,
+										 Text2 = compound["Text2"].StringValue,
+										 Text3 = compound["Text3"].StringValue,
+										 Text4 = compound["Text4"].StringValue,
+										 Coordinates =
+											 new BlockCoordinates(compound["x"].IntValue, compound["y"].IntValue,
+												 compound["z"].IntValue)
+									 };
 
-            OnChunkData?.Invoke(chunk);
+									 chunk.BlockEntities.Add(s.Coordinates, s.GetCompound());
+								 }
+								 else if (val.StringValue == "Skull")
+								 {
+									 SkullBlockEntity s = new SkullBlockEntity
+									 {
+										 SkullType = compound["SkullType"].ByteValue,
+										 Rotation = compound["Rot"].ByteValue,
+										 Coordinates =
+											 new BlockCoordinates(compound["x"].IntValue, compound["y"].IntValue,
+												 compound["z"].IntValue)
+									 };
+
+									 chunk.BlockEntities.Add(s.Coordinates, s.GetCompound());
+								 }
+							 }
+						 }
+						 catch
+						 {
+							 //
+						 }
+					 }
+				 }
+			 }
+			 			
+			OnChunkData?.Invoke(chunk);
         }
 
         public event PacketDelegate<McpeSetEntityMotion> OnMcpeSetEntityMotion;
         private void HandleMcpeSetEntityMotion(McpeSetEntityMotion packet)
-        {
+        {/*
             var count = packet.ReadInt();
             if (count > 0)
             {
@@ -863,13 +1152,13 @@ namespace PocketProxy.Network
                 }
             }
 
-            OnMcpeSetEntityMotion?.Invoke(packet);
+            OnMcpeSetEntityMotion?.Invoke(packet);*/
         }
 
         public event PacketDelegate<McpeMoveEntity> OnMcpeMoveEntity;
         private void HandleMcpeMoveEntity(McpeMoveEntity packet)
         {
-            EntityLocations el = new EntityLocations();
+           /* EntityLocations el = new EntityLocations();
 
             var count = packet.ReadInt();
             if (count > 0)
@@ -894,108 +1183,102 @@ namespace PocketProxy.Network
             }
 
             packet.entities = el;
-            OnMcpeMoveEntity?.Invoke(packet);
+            OnMcpeMoveEntity?.Invoke(packet);*/
         }
 
-        private void OnBatch(Package message)
-        {
-            McpeBatch batch = (McpeBatch)message;
+		private void OnBatch(Package message)
+		{
+			McpeBatch batch = (McpeBatch)message;
 
-            var messages = new List<Package>();
+			var messages = new List<Package>();
 
-            // Get bytes
-            byte[] payload = batch.payload;
-            // Decompress bytes
+			// Get bytes
+			byte[] payload = batch.payload;
+			// Decompress bytes
 
-            using (MemoryStream stream = new MemoryStream(payload))
-            {
-                if (stream.ReadByte() != 0x78)
-                {
-                    throw new InvalidDataException("Incorrect ZLib header. Expected 0x78 0x9C");
-                }
-                stream.ReadByte();
-                using (var defStream2 = new DeflateStream(stream, CompressionMode.Decompress, false))
-                {
-                    // Get actual package out of bytes
-                    using (MemoryStream destination = new MemoryStream())
-                    {
-                        defStream2.CopyTo(destination);
-                        destination.Position = 0;
-                        using (NbtBinaryReader reader = new NbtBinaryReader(destination, true))
-                        {
-                            do
-                            {
-                                int len = reader.ReadInt32();
-                                byte[] internalBuffer = reader.ReadBytes(len);
+			MemoryStream stream = new MemoryStream(payload);
+			if (stream.ReadByte() != 0x78)
+			{
+				throw new InvalidDataException("Incorrect ZLib header. Expected 0x78 0x9C");
+			}
+			stream.ReadByte();
+			using (var defStream2 = new DeflateStream(stream, CompressionMode.Decompress, false))
+			{
+				// Get actual package out of bytes
+				MemoryStream destination = MiNetServer.MemoryStreamManager.GetStream();
+				defStream2.CopyTo(destination);
+				destination.Position = 0;
+				NbtBinaryReader reader = new NbtBinaryReader(destination, true);
+				do
+				{
+					int len = reader.ReadInt32();
+					byte[] internalBuffer = reader.ReadBytes(len);
 
-                                if (internalBuffer[0] == 0x8e) Log.Error("Wrong code");
+					if (internalBuffer[0] == 0x8e) throw new Exception("Wrong code, didn't expect a 0x8E in a batched packet");
 
-                                var package = PackageFactory.CreatePackage(internalBuffer[0], internalBuffer) ??
-                                              new UnknownPackage(internalBuffer[0], internalBuffer);
-                                messages.Add(package);
+					var package = PackageFactory.CreatePackage(internalBuffer[0], internalBuffer, "mcpe") ?? new UnknownPackage(internalBuffer[0], internalBuffer);
+					messages.Add(package);
 
-                                //Log.Debug($"Batch: {package.GetType().Name} 0x{package.Id:x2}");
-
-                            } while (destination.Position < destination.Length);
-                        }
-                    }
-                }
-            }
-
-            foreach (var msg in messages)
-            {
-                msg.DatagramSequenceNumber = batch.DatagramSequenceNumber;
-                msg.OrderingChannel = batch.OrderingChannel;
-                msg.OrderingIndex = batch.OrderingIndex;
-                HandlePackage(msg);
-                msg.PutPool();
-            }
-        }
-
-        private void SendPackage(Package message, short mtuSize)
-        {
-            if (message == null) return;
-
-            foreach (var datagram in Datagram.CreateDatagrams(message, mtuSize, Session))
-            {
-                SendDatagram(datagram);
-            }
-        }
-
-        private void SendDatagram(Datagram datagram)
-        {
-            if (datagram.MessageParts.Count != 0)
-            {
-                datagram.Header.datagramSequenceNumber = Interlocked.Increment(ref Session.DatagramSequenceNumber);
-                byte[] data = datagram.Encode();
-                datagram.PutPool();
-
-                SendData(data, _serverEndpoint);
-            }
-        }
+					//if (Log.IsDebugEnabled) Log.Debug($"Batch: {package.GetType().Name} 0x{package.Id:x2}");
+					//if (!(package is McpeFullChunkData)) Log.Debug($"Batch: {package.GetType().Name} 0x{package.Id:x2} \n{Package.HexDump(internalBuffer)}");
+				} while (destination.Position < destination.Length);
+			}
+			//Log.Error($"Batch had {messages.Count} packets.");
+			foreach (var msg in messages)
+			{
+				msg.DatagramSequenceNumber = batch.DatagramSequenceNumber;
+				msg.OrderingChannel = batch.OrderingChannel;
+				msg.OrderingIndex = batch.OrderingIndex;
+				HandlePackage(msg);
+				msg.PutPool();
+			}
+		}
 
 
-        private void SendData(byte[] data)
-        {
-            SendData(data, _serverEndpoint);
-        }
+		public void SendPackage(Package message, short mtuSize, ref int reliableMessageNumber)
+		{
+			if (message == null) return;
+
+			foreach (var datagram in Datagram.CreateDatagrams(message, mtuSize, Session))
+			{
+				SendDatagram(Session, datagram);
+			}
+		}
+
+		private void SendDatagram(PlayerNetworkSession session, Datagram datagram)
+		{
+			if (datagram.MessageParts.Count != 0)
+			{
+				datagram.Header.datagramSequenceNumber = Interlocked.Increment(ref Session.DatagramSequenceNumber);
+				byte[] data = datagram.Encode();
+				datagram.PutPool();
+
+				SendData(data, _serverEndpoint);
+			}
+		}
 
 
-        private void SendData(byte[] data, IPEndPoint targetEndpoint)
-        {
-            if (UdpClient == null) return;
-            try
-            {
-                //UdpClient.SendAsync(data, data.Length, targetEndpoint);
-                UdpClient.Send(data, data.Length, targetEndpoint);
-            }
-            catch (Exception e)
-            {
-                Log.Debug("Send exception", e);
-            }
-        }
+		private void SendData(byte[] data)
+		{
+			SendData(data, _serverEndpoint);
+		}
 
-        private void SendConnectedPong(long sendpingtime)
+		private void SendData(byte[] data, IPEndPoint targetEndpoint)
+		{
+			if (UdpClient == null) return;
+
+			try
+			{
+				UdpClient.Send(data, data.Length, targetEndpoint);
+			}
+			catch (Exception e)
+			{
+				Log.Debug("Send exception", e);
+			}
+		}
+
+
+		private void SendConnectedPong(long sendpingtime)
         {
             SendPackage(new ConnectedPong
             {
@@ -1006,13 +1289,14 @@ namespace PocketProxy.Network
 
         private void SendOpenConnectionRequest1()
         {
-            var packet = new OpenConnectionRequest1
+            var packet = new OpenConnectionRequest1()
             {
-                raknetProtocolVersion = 6,
+                raknetProtocolVersion = 7, // Indicate to the server that this is a performance tests. Disables logging.
                 mtuSize = _mtuSize
             };
 
             byte[] data = packet.Encode();
+
 
             // 1087 1447
             byte[] data2 = new byte[_mtuSize - data.Length];
@@ -1023,13 +1307,13 @@ namespace PocketProxy.Network
 
         private void SendOpenConnectionRequest2()
         {
-            _clientGuid = new Random().Next();
-            var packet = new OpenConnectionRequest2
+            _clientGuid = new Random().Next() + new Random().Next();
+            var packet = new OpenConnectionRequest2()
             {
-                clientendpoint = _clientEndpoint,
                 mtuSize = _mtuSize,
-                clientGuid = _clientGuid
-            };
+                clientGuid = _clientGuid,
+				remoteBindingAddress = _clientEndpoint
+			};
 
             var data = packet.Encode();
 
@@ -1038,79 +1322,82 @@ namespace PocketProxy.Network
 
         private void SendConnectionRequest()
         {
-            var packet = new ConnectionRequest
+            var packet = new ConnectionRequest()
             {
                 clientGuid = _clientGuid,
-                timestamp = DateTime.UtcNow.Ticks,
-                doSecurity = 0
+                timestamp = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond,
+                doSecurity = 0,
             };
 
             SendPackage(packet);
         }
 
-        public void SendPackage(Package package)
+	    private int _reliableMessageNumber;
+
+		public void SendPackage(Package package)
         {
-            SendPackage(package, _mtuSize);
-            package.PutPool();
-        }
+			SendPackage(package, _mtuSize, ref _reliableMessageNumber);
+			package.PutPool();
+		}
 
         private void SendNewIncomingConnection()
         {
-            Random rand = new Random();
-            var packet = new NewIncomingConnection
+            var packet = NewIncomingConnection.CreateObject();
+            packet.clientendpoint = _clientEndpoint;
+            packet.systemAddresses = new IPEndPoint[10];
+            for (int i = 0; i < 10; i++)
             {
-                doSecurity = 163,
-                session = rand.Next(),
-                session2 = rand.Next(),
-                cookie = rand.Next(),
-                port = (short) _clientEndpoint.Port
-            };
+                packet.systemAddresses[i] = new IPEndPoint(IPAddress.Any, 0);
+            }
 
             SendPackage(packet);
         }
 
-        private void SendLogin(string username)
-        {
-            Skin skin = new Skin
-            {
-                Slim = false,
-                Texture = Encoding.Default.GetBytes(new string('Z', 8192)),
-                SkinType = "Standard_Custom"
-            };
+		public void SendLogin(string username)
+		{
+			//McpeLogin loginPacket = new McpeLogin
+			//{
+			//	protocolVersion = 81,
+			//	payloadLenght = 5617,
+			//	payload = Convert.FromBase64String("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")
+			//};
+			JWT.JsonMapper = new NewtonsoftMapper();
 
-            if (File.Exists("skin.png"))
-            {
-                skin.Texture = File.ReadAllBytes("skin.png");
-            }
+			CngKey clientKey = CryptoUtils.GenerateClientKey();
+			var data = CryptoUtils.CompressJwtBytes(CryptoUtils.EncodeJwt(Username, clientKey), CryptoUtils.EncodeSkinJwt(clientKey), CompressionLevel.Fastest);
 
-            var packet = new McpeLogin
-            {
-                username = username,
-                protocol = 46,
-                protocol2 = 46,
-                clientId = ClientId,
-                clientUuid = new UUID(Guid.NewGuid().ToByteArray()),
-                serverAddress = _serverEndpoint.Address + ":" + _serverEndpoint.Port,
-                // clientSecret = "iwmvi45hm85oncyo58",
-                clientSecret =
-                    Encoding.ASCII.GetString(
-                        MD5.Create()
-                            .ComputeHash(
-                                Encoding.UTF8.GetBytes("" + ClientId + _serverEndpoint.Address + _serverEndpoint.Port))),
-                skin = skin
-            };
+			McpeLogin loginPacket = new McpeLogin
+			{
+				protocolVersion = 81,
+				payloadLenght = data.Length,
+				payload = data
+			};
 
-            byte[] buffer = Player.CompressBytes(packet.Encode(), CompressionLevel.Fastest, true);
+			var payload = Player.CompressBytes(loginPacket.Encode(), CompressionLevel.Fastest, true);
 
-            McpeBatch batch = new McpeBatch
-            {
-                payloadSize = buffer.Length,
-                payload = buffer
-            };
-            batch.Encode();
+			McpeBatch batch = new McpeBatch
+			{
+				payloadSize = payload.Length,
+				payload = payload
+			};
 
-            SendPackage(batch);
-        }
+			Session.CryptoContext = new CryptoContext()
+			{
+				ClientKey = clientKey
+			};
+
+			SendPackage(batch);
+		}
+
+		//byte[] buffer = Player.CompressBytes(packet.Encode(), CompressionLevel.Fastest, true);
+
+		//McpeBatch batch = McpeBatch.CreateObject();
+		//batch.payloadSize = buffer.Length;
+		//batch.payload = buffer;
+		//batch.Encode();
+
+		//SendPackage(batch);
+		// LoginSent = true;
 
         public void SendChat(string text)
         {

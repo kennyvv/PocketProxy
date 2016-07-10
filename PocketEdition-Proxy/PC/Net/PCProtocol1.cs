@@ -8,6 +8,7 @@
 using PocketProxy.PC.Utils;
 using PocketProxy.PC.Objects;
 using MiNET.Utils;
+using System.Numerics;
 
 namespace PocketProxy.PC.Net
 {

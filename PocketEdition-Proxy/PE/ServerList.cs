@@ -21,6 +21,8 @@ namespace PocketProxy.PE
         /// <returns></returns>
         public static ServerInfo QueryServer(IPEndPoint serverEndPoint)
         {
+	       // return new ServerInfo(10, 0, "test");
+
             IPEndPoint recpoint = new IPEndPoint(IPAddress.Any, 0);
             UdpClient client = new UdpClient
             {
@@ -41,10 +43,12 @@ namespace PocketProxy.PE
                 using (var ms = new MemoryStream())
                 {
                     ms.WriteByte(0x01);
-                    byte[] pingId = BitConverter.GetBytes((long) 12).Reverse().ToArray();
+                    byte[] pingId = BitConverter.GetBytes((long) new Random().Next()).Reverse().ToArray();
                     ms.Write(pingId, 0, 8);
                     ms.Write(OfflineMessageDataId, 0, OfflineMessageDataId.Length);
-                    var data = ms.ToArray();
+					byte[] guid = BitConverter.GetBytes((long) (new Random().Next() + new Random().Next())).Reverse().ToArray();
+					ms.Write(guid, 0, guid.Length);
+					var data = ms.ToArray();
                     client.Send(data, data.Length);
                 }
 

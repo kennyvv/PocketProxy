@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Numerics;
 using PocketProxy.PC.Net.Clientbound;
 using MiNET;
 using MiNET.BlockEntities;
@@ -127,7 +128,7 @@ namespace PocketProxy.Network
             });
         }
 
-        private void PeClient_OnMcpeTileEvent(McpeTileEvent packet)
+        private void PeClient_OnMcpeTileEvent(McpeBlockEvent packet)
         {
             QueuePacket(new BlockAction
             {
@@ -206,6 +207,8 @@ namespace PocketProxy.Network
 
         private void PeClient_OnMcpeSetEntityMotion(McpeSetEntityMotion packet)
         {
+			//TODO: Fix
+			/*
             foreach (var i in packet.entities)
             {
                 short speedx = (short)Math.Round(i.Value.X * 8000);
@@ -219,12 +222,14 @@ namespace PocketProxy.Network
                     VelocityY = speedy,
                     VelocityZ = speedz
                 });
-            }
+            }*/
         }
 
         private void PeClient_OnMcpeMoveEntity(McpeMoveEntity packet)
-        {
-            if (packet.entities.Count == 0) return;
+		{
+			//TODO: Fix
+			/*
+			if (packet.entities.Count == 0) return;
             
             foreach (var i in packet.entities)
             {
@@ -252,7 +257,7 @@ namespace PocketProxy.Network
                     EntityId = (int)i.Key,
                     Yaw = i.Value.Yaw.ToAngle()
                 });
-            }
+            }*/
         }
 
         private void PocketEditionClient_OnMcpeAdventureSettings(McpeAdventureSettings packet)
@@ -371,7 +376,7 @@ namespace PocketProxy.Network
             }
         }
 
-        private void OnMcpePlayerArmor(McpePlayerArmorEquipment spacket)
+        private void OnMcpePlayerArmor(McpeMobArmorEquipment spacket)
         {
             if (spacket.entityId == 0) return;
 
@@ -412,7 +417,7 @@ namespace PocketProxy.Network
             });
         }
 
-        private void PocketEditionClient_OnTileEntityData(McpeTileEntityData packet)
+        private void PocketEditionClient_OnTileEntityData(McpeBlockEntityData packet)
         {
             var compound = packet.namedtag.NbtFile.RootTag;
 
@@ -480,6 +485,8 @@ namespace PocketProxy.Network
 
         private void PocketEditionClient_OnBlockUpdate(McpeUpdateBlock packet)
         {
+			//TODO: Fix
+			/*
             if (packet.blocks.Count > 1)
             {
                 var cx = packet.blocks[0].Coordinates.X >> 4;
@@ -497,7 +504,7 @@ namespace PocketProxy.Network
             {
                 Location = packet.blocks[0].Coordinates,
                 BlockId = packet.blocks[0].Id << 4 | (packet.blocks[0].Metadata & 15)
-            });
+            });*/
         }
         private void PocketEditionClient_OnPlayerRemoval(long entityId, UUID clientUuid)
         {

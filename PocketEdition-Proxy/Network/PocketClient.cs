@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Numerics;
 using System.Threading;
 using log4net;
 using PocketProxy.PC.Net.Clientbound;
@@ -341,7 +342,7 @@ namespace PocketProxy.Network
         {
             var currentItem = InventoryManager.GetCurrentItem;
 
-            McpePlayerEquipment pack = McpePlayerEquipment.CreateObject();
+            McpeMobEquipment pack = McpeMobEquipment.CreateObject();
             pack.item = currentItem;
             pack.slot = (byte)(InventoryManager.SelectedSlot + 9);
             pack.selectedSlot = (byte)InventoryManager.SelectedSlot;

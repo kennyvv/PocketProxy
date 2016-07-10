@@ -6,6 +6,7 @@ namespace PocketProxy.PC.Net.Clientbound
 {
     public class MultiBlockChange : Packet
     {
+		//TODO: Fix packet
         public MultiBlockChange()
         {
             PacketId = 0x10;
@@ -13,11 +14,11 @@ namespace PocketProxy.PC.Net.Clientbound
 
         public int ChunkX;
         public int ChunkZ;
-        public BlockRecords Blocks;
+       // public BlockRecords Blocks;
 
         public override void Write(MinecraftStream stream)
         {
-            stream.WriteInt(ChunkX);
+         /*   stream.WriteInt(ChunkX);
             stream.WriteInt(ChunkZ);
             stream.WriteVarInt(Blocks.Count);
 
@@ -30,7 +31,7 @@ namespace PocketProxy.PC.Net.Clientbound
                 stream.WriteUInt8(encodedByte);
                 stream.WriteUInt8((byte) i.Coordinates.Y);
                 stream.WriteVarInt(i.Id << 4 | (i.Metadata & 15));
-            }
+            }*/
         }
     }
 }
