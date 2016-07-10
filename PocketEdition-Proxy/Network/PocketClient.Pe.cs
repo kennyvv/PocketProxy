@@ -498,7 +498,7 @@ namespace PocketProxy.Network
 			QueuePacket(new Blockchange
 			{
 				Location = new Vector3(packet.x, packet.y, packet.z),
-				BlockId = packet.Id << 4 | (packet.blockMetaAndPriority & 15)
+				BlockId = packet.Id << 4 | (packet.blockMetaAndPriority & 0xf)
 			});
 			/*
             if (packet.blocks.Count > 1)
@@ -974,8 +974,10 @@ namespace PocketProxy.Network
                     UUID = PcClientUuid.ToString()
                 });
 
-               
-            }
+				McpeRequestChunkRadius request = McpeRequestChunkRadius.CreateObject();
+				request.chunkRadius = ChunkRadius;
+				PeClient.SendPackage(request);
+			}
             else
             {
                 QueuePacket(new ChangeGamestate
@@ -1002,10 +1004,6 @@ namespace PocketProxy.Network
                 Z = SpawnPosition.Z,
                 TeleportID = 0
             });
-
-			McpeRequestChunkRadius request = McpeRequestChunkRadius.CreateObject();
-	        request.chunkRadius = ChunkRadius;
-			PeClient.SendPackage(request);
 
 			_spawned = true;
         }

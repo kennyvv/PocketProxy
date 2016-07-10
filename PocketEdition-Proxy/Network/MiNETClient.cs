@@ -662,7 +662,8 @@ namespace PocketProxy.Network
 
             if (typeof (McpeRemoveEntity) == message.GetType())
             {
-                OnRemovePlayer((McpeRemoveEntity) message);
+				OnMcpeRemoveEntity?.Invoke((McpeRemoveEntity) message);
+                //OnRemovePlayer((McpeRemoveEntity) message);
                 return;
             }
 
