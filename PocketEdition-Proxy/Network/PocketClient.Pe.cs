@@ -493,32 +493,11 @@ namespace PocketProxy.Network
 
         private void PocketEditionClient_OnBlockUpdate(McpeUpdateBlock packet)
         {
-			//TODO: Fix
-			Log.Info("Block ID: " + packet.Id);
 			QueuePacket(new Blockchange
 			{
 				Location = new Vector3(packet.x, packet.y, packet.z),
-				BlockId = packet.Id << 4 | (packet.blockMetaAndPriority & 0xf)
+				BlockId = packet.blockId << 4 | (packet.blockMetaAndPriority & 0xf)
 			});
-			/*
-            if (packet.blocks.Count > 1)
-            {
-                var cx = packet.blocks[0].Coordinates.X >> 4;
-                var cz = packet.blocks[0].Coordinates.Z >> 4;
-                QueuePacket(new MultiBlockChange
-                {
-                    ChunkX = cx,
-                    ChunkZ = cz,
-                    Blocks = packet.blocks
-                });
-                return;
-            }
-
-            QueuePacket(new Blockchange
-            {
-                Location = packet.blocks[0].Coordinates,
-                BlockId = packet.blocks[0].Id << 4 | (packet.blocks[0].Metadata & 15)
-            });*/
 		}
         private void PocketEditionClient_OnPlayerRemoval(long entityId, UUID clientUuid)
         {

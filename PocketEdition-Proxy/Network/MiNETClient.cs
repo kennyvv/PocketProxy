@@ -322,7 +322,7 @@ namespace PocketProxy.Network
 
 		public void AddToProcessing(Package message)
 		{
-			if (message.Reliability != Reliability.ReliableOrdered)
+			if (Session.CryptoContext == null || Session.CryptoContext.UseEncryption == false || message.Reliability != Reliability.ReliableOrdered)
 			{
 				HandlePackage(message);
 				return;
@@ -713,7 +713,6 @@ namespace PocketProxy.Network
             {
                 var packet = ((McpePlayerStatus) message);
                 PlayerStatus = packet.status;
-
                 OnMcpePlayerStatus?.Invoke((McpePlayerStatus)message);
                 return;
             }
@@ -894,6 +893,9 @@ namespace PocketProxy.Network
 			}
 		}
 
+		public AutoResetEvent FirstEncryptedPacketWaitHandle = new AutoResetEvent(false);
+		public AutoResetEvent FirstPacketWaitHandle = new AutoResetEvent(false);
+
 		private void OnWrapper(McpeWrapper message)
 		{
 
@@ -901,6 +903,7 @@ namespace PocketProxy.Network
 			byte[] payload = message.payload;
 			if (Session.CryptoContext != null && Session.CryptoContext.UseEncryption)
 			{
+				FirstEncryptedPacketWaitHandle.Set();
 				payload = CryptoUtils.Decrypt(payload, Session.CryptoContext);
 			}
 
