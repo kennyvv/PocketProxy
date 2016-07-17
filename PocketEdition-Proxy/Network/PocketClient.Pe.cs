@@ -92,6 +92,7 @@ namespace PocketProxy.Network
 					// PcSkin.AddSkinToCache(uuid.ToString(), i.Skin.Texture);
 
 					var rawDisplayName = displayName;
+					
 					displayName = displayName.RemoveSpecialCharacters();
 					if (displayName.Length > 16)
 					{
@@ -215,9 +216,19 @@ namespace PocketProxy.Network
 
         private void PeClient_OnMcpeSetEntityMotion(McpeSetEntityMotion packet)
         {
-			//TODO: Fix
-			/*
-            foreach (var i in packet.entities)
+			short speedx = (short)Math.Round(packet.velocity.X * 8000);
+			short speedy = (short)Math.Round(packet.velocity.Y * 8000);
+			short speedz = (short)Math.Round(packet.velocity.Z * 8000);
+
+			QueuePacket(new EntityVelocity
+			{
+				EntityId = (int)packet.entityId,
+				VelocityX = speedx,
+				VelocityY = speedy,
+				VelocityZ = speedz
+			});
+
+/*			foreach (var i in packet.entities)
             {
                 short speedx = (short)Math.Round(i.Value.X * 8000);
                 short speedy = (short)Math.Round(i.Value.Y * 8000);
@@ -236,6 +247,32 @@ namespace PocketProxy.Network
         private void PeClient_OnMcpeMoveEntity(McpeMoveEntity packet)
 		{
 			//TODO: Fix
+
+			QueuePacket(new EntityTeleport
+			{
+				EntityId = (int)packet.entityId,
+				X = packet.position.X,
+				Y = packet.position.Y,
+				Z = packet.position.Z,
+				OnGround = true,
+				Pitch = packet.position.Pitch.ToAngle(),
+				Yaw = packet.position.Yaw.ToAngle()
+			});
+
+			QueuePacket(new EntityLook
+			{
+				EntityId = (int)packet.entityId,
+				Pitch = packet.position.Pitch.ToAngle(),
+				Yaw = packet.position.Yaw.ToAngle(),
+				OnGround = false
+			});
+
+			QueuePacket(new Entityheadlook
+			{
+				EntityId = (int)packet.entityId,
+				Yaw = packet.position.Yaw.ToAngle()
+			});
+
 			/*
 			if (packet.entities.Count == 0) return;
             
@@ -266,7 +303,7 @@ namespace PocketProxy.Network
                     Yaw = i.Value.Yaw.ToAngle()
                 });
             }*/
-        }
+		}
 
         private void PocketEditionClient_OnMcpeAdventureSettings(McpeAdventureSettings packet)
         {
@@ -444,15 +481,24 @@ namespace PocketProxy.Network
                 var z = compound["z"].IntValue;
                 s.Coordinates = new BlockCoordinates(x, y, z);
 
-                QueuePacket(new Updatesign
-                {
-                    Line1 = JsonConvert.SerializeObject(new ChatObject(s.Text1)),
-                    Line2 = JsonConvert.SerializeObject(new ChatObject(s.Text2)),
-                    Line3 = JsonConvert.SerializeObject(new ChatObject(s.Text3)),
-                    Line4 = JsonConvert.SerializeObject(new ChatObject(s.Text4)),
-                    Location = new Vector3(packet.x, packet.y, packet.z)
-                });
-            }
+				/* QueuePacket(new Updatesign
+				 {
+					 Line1 = JsonConvert.SerializeObject(new ChatObject(s.Text1)),
+					 Line2 = JsonConvert.SerializeObject(new ChatObject(s.Text2)),
+					 Line3 = JsonConvert.SerializeObject(new ChatObject(s.Text3)),
+					 Line4 = JsonConvert.SerializeObject(new ChatObject(s.Text4)),
+					 Location = new Vector3(packet.x, packet.y, packet.z)
+				 });*/
+
+				/*QueuePacket(new Updatesign
+				{
+					Line1 = "",
+					Line2 = "",
+					Line3 = "",
+					Line4 = "",
+					Location = new Vector3(packet.x, packet.y, packet.z)
+				});*/
+			}
             else if (nbtTag != null && nbtTag.StringValue == "Skull")
             {
                 UpdateBlockEntity update = new UpdateBlockEntity

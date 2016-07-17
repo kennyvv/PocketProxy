@@ -110,6 +110,10 @@ namespace PocketProxy.PC.Net
 								packet = new CloseWindow();
 								packet.Read(buffer);
 								return packet;							
+							case 0x05:
+								packet = new ConfirmTransactionServerbound();
+								packet.Read(buffer);
+								return packet;							
 							case 0x07:
 								packet = new Serverbound.ClickWindow();
 								packet.Read(buffer);
@@ -484,6 +488,7 @@ namespace PocketProxy.PC.Net.Clientbound
 		public int SizeOfData;
 		public byte[] Data;
 		public byte[] Biome;
+		public int BlockEntityCount=0;
 		public ChunkData()
 		{
 			PacketId = 0x20;
@@ -498,6 +503,7 @@ namespace PocketProxy.PC.Net.Clientbound
 			stream.WriteVarInt(SizeOfData);
 			stream.WriteBytes(Data);
 			stream.WriteBytes(Biome);
+			stream.WriteVarInt(BlockEntityCount);
 		}
 
 		public override void Read(MinecraftStream stream)
@@ -509,6 +515,7 @@ namespace PocketProxy.PC.Net.Clientbound
 			SizeOfData = stream.ReadVarInt();
 			Data = stream.ReadBytes();
 			Biome = stream.ReadBytes();
+			BlockEntityCount = stream.ReadVarInt();
 		}
 	}
 }
@@ -1184,7 +1191,7 @@ namespace PocketProxy.PC.Net.Clientbound
 		public string Line4;
 		public Updatesign()
 		{
-			PacketId = 0x46;
+			PacketId = 0x19;
 		}
 
 		public override void Write(MinecraftStream stream)
@@ -1220,7 +1227,7 @@ namespace PocketProxy.PC.Net.Clientbound
 		public bool OnGround;
 		public EntityTeleport()
 		{
-			PacketId = 0x4a;
+			PacketId = 0x49;
 		}
 
 		public override void Write(MinecraftStream stream)
@@ -1448,7 +1455,7 @@ namespace PocketProxy.PC.Net.Clientbound
 		public int CollectorEntityId;
 		public CollectItem()
 		{
-			PacketId = 0x49;
+			PacketId = 0x48;
 		}
 
 		public override void Write(MinecraftStream stream)
@@ -1829,6 +1836,34 @@ namespace PocketProxy.PC.Net.Clientbound
 	}
 }
 
+namespace PocketProxy.PC.Net.Serverbound
+{
+	public class ConfirmTransactionServerbound : Packet
+	{
+		public byte WindowId;
+		public short ActionNumber;
+		public bool Accepted;
+		public ConfirmTransactionServerbound()
+		{
+			PacketId = 0x05;
+		}
+
+		public override void Write(MinecraftStream stream)
+		{
+			stream.WriteUInt8(WindowId);
+			stream.WriteShort(ActionNumber);
+			stream.WriteBoolean(Accepted);
+		}
+
+		public override void Read(MinecraftStream stream)
+		{
+			WindowId = stream.ReadUInt8();
+			ActionNumber = stream.ReadShort();
+			Accepted = stream.ReadBoolean();
+		}
+	}
+}
+
 namespace PocketProxy.PC.Net.Clientbound
 {
 	public class PlayerListHeaderFooter : Packet
@@ -1837,7 +1872,7 @@ namespace PocketProxy.PC.Net.Clientbound
 		public string Footer;
 		public PlayerListHeaderFooter()
 		{
-			PacketId = 0x48;
+			PacketId = 0x47;
 		}
 
 		public override void Write(MinecraftStream stream)

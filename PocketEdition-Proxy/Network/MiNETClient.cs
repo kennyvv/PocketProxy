@@ -214,6 +214,7 @@ namespace PocketProxy.Network
 							OpenConnectionReply1 incoming = (OpenConnectionReply1)message;
 							if (incoming.mtuSize != _mtuSize) Log.Warn("Requested MTUSize: " + incoming.mtuSize);
 							Log.Warn("Security: " + (incoming.serverHasSecurity == 1 ? "True" : "False"));
+							//DoSecurity = incoming.serverHasSecurity == 1;
 							_mtuSize = incoming.mtuSize;
 							SendOpenConnectionRequest2();
 							break;
@@ -240,19 +241,19 @@ namespace PocketProxy.Network
 						throw new Exception("Receive ERROR, NAK in wrong place");
 					}
 
-					//if (IsEmulator && PlayerStatus == 3)
-					//{
-					//	int datagramId = new Int24(new[] {receiveBytes[1], receiveBytes[2], receiveBytes[3]});
+					if (PlayerStatus == 3)
+					{
+						int datagramId = new Int24(new[] {receiveBytes[1], receiveBytes[2], receiveBytes[3]});
 
-					//	//Acks ack = Acks.CreateObject();
-					//	Acks ack = new Acks();
-					//	ack.acks.Add(datagramId);
-					//	byte[] data = ack.Encode();
-					//	ack.PutPool();
-					//	SendData(data, senderEndpoint);
+						//Acks ack = Acks.CreateObject();
+						Acks ack = new Acks();
+						ack.acks.Add(datagramId);
+						byte[] data = ack.Encode();
+						ack.PutPool();
+						SendData(data, senderEndpoint);
 
-					//	//return;
-					//}
+						//return;
+					}
 
 					ConnectedPackage package = ConnectedPackage.CreateObject();
 					//var package = new ConnectedPackage();
@@ -330,6 +331,7 @@ namespace PocketProxy.Network
 
 			lock (_eventSync)
 			{
+				if (_lastSequenceNumber < 0) _lastSequenceNumber = 1;
 				if (_queue.Count == 0 && message.OrderingIndex == _lastSequenceNumber + 1)
 				{
 					_lastSequenceNumber = message.OrderingIndex;
@@ -400,11 +402,6 @@ namespace PocketProxy.Network
 
 			_mtuSize = message.mtuSize;
 			Thread.Sleep(100);
-			SendConnectionRequest();
-		}
-
-		private void HandleOpenConnectionReply2(OpenConnectionReply2 message)
-		{
 			SendConnectionRequest();
 		}
 
@@ -713,6 +710,9 @@ namespace PocketProxy.Network
             {
                 var packet = ((McpePlayerStatus) message);
                 PlayerStatus = packet.status;
+
+				Log.Warn("PlayerStatus: " + packet.status);
+
                 OnMcpePlayerStatus?.Invoke((McpePlayerStatus)message);
                 return;
             }
@@ -1056,6 +1056,7 @@ namespace PocketProxy.Network
             SendNewIncomingConnection();
             Thread.Sleep(50);
             SendLogin(Username);
+			Log.Warn("Login sent!");
         }
 
         public delegate void FullChunkDataDelegate(ChunkColumn chunkColumn);
@@ -1299,7 +1300,7 @@ namespace PocketProxy.Network
         {
             var packet = new OpenConnectionRequest1()
             {
-                raknetProtocolVersion = 7, // Indicate to the server that this is a performance tests. Disables logging.
+                raknetProtocolVersion = 6, // Indicate to the server that this is a performance tests. Disables logging.
                 mtuSize = _mtuSize
             };
 
@@ -1338,6 +1339,7 @@ namespace PocketProxy.Network
             };
 
             SendPackage(packet);
+			Log.Info("Sent ConnectioNRequest");
         }
 
 	    private int _reliableMessageNumber = -1;

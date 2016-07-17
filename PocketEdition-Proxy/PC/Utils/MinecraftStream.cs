@@ -426,7 +426,7 @@ namespace PocketProxy.PC.Utils
 
         public void WriteString(string value)
         {
-            WriteVarInt(StringEncoding.GetByteCount(value));
+	        WriteVarInt(StringEncoding.GetByteCount(value));
             if (value.Length > 0)
                 WriteByteArray(StringEncoding.GetBytes(value));
         }

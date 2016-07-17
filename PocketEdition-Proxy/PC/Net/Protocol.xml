@@ -87,6 +87,7 @@
     <field name="SizeOfData" type="varint" />
     <field name="Data" type="byte[]" />
     <field name="Biome" type="byte[]" />
+		<field name="BlockEntityCount" type="varint" value="0" />
   </pdu>
 
   <pdu id="0x43" name="Spawn Position">
@@ -239,7 +240,7 @@
     <field name="BlockId" type="varint"/>
   </pdu>
 
-  <pdu id="0x46" name="UpdateSign">
+  <pdu id="0x19" name="UpdateSign">
     <field name="Location" type="position"/>
     <field name="Line1" type="string"/>
     <field name="Line2" type="string"/>
@@ -247,7 +248,7 @@
     <field name="Line4" type="string"/>
   </pdu>
 
-  <pdu id="0x4A" name="Entity Teleport" writeonly="true">
+  <pdu id="0x49" name="Entity Teleport" writeonly="true">
     <field name="EntityId" type="varint"/>
     <field name="X" type="double"/>
     <field name="Y" type="double"/>
@@ -298,7 +299,7 @@
     <field name="FoodSaturation" type="float"/>
   </pdu>
   
-  <pdu id="0x49" name="Collect Item" writeonly="true">
+  <pdu id="0x48" name="Collect Item" writeonly="true">
     <field name="CollectedEntityId" type="varint"/>
     <field name="CollectorEntityId" type="varint"/>
   </pdu>
@@ -381,7 +382,13 @@
     <field name="Accepted" type="boolean"/>
   </pdu>
 
-  <pdu id="0x48" name="Player List Header Footer">
+	<pdu id="0x05" serverbound="true" state="play" name="Confirm Transaction ServerBound">
+		<field name="WindowId" type="byte"/>
+		<field name="ActionNumber" type="short"/>
+		<field name="Accepted" type="boolean"/>
+	</pdu>
+
+  <pdu id="0x47" name="Player List Header Footer">
     <field name="Header" type="string"/>
     <field name="Footer" type="string"/>
   </pdu>

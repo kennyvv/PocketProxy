@@ -291,8 +291,8 @@ namespace PocketProxy.Network
         {
             try
             {
-                var packetData = packet.GetData();
-
+				var packetData = packet.GetData();
+				
                 using (var stream = new MinecraftStream(Client.GetStream()))
                 {
                     stream.WriteVarInt(packetData.Length + MinecraftStream.GetVarIntLength(packet.PacketId));
@@ -748,14 +748,14 @@ namespace PocketProxy.Network
                 {
                     Sign s = new Sign();
                     s.SetCompound(compound);
-                    QueuePacket(new Updatesign
+                   /* QueuePacket(new Updatesign
                     {
-                        Line1 = JsonConvert.SerializeObject(new ChatObject(s.Text1)),
-                        Line2 = JsonConvert.SerializeObject(new ChatObject(s.Text2)),
-                        Line3 = JsonConvert.SerializeObject(new ChatObject(s.Text3)),
-                        Line4 = JsonConvert.SerializeObject(new ChatObject(s.Text4)),
-                        Location = i.Key
-                    });
+						 Line1 = JsonConvert.SerializeObject(new ChatObject(s.Text1)),
+						 Line2 = JsonConvert.SerializeObject(new ChatObject(s.Text2)),
+						 Line3 = JsonConvert.SerializeObject(new ChatObject(s.Text3)),
+						 Line4 = JsonConvert.SerializeObject(new ChatObject(s.Text4)),
+						Location = i.Key
+                    });*/
                 }
                 else if (nbtTag != null && nbtTag.StringValue == "Skull")
                 {
